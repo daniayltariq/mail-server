@@ -12,7 +12,7 @@ $mail = new PHPMailer();
 
 $mail->isSMTP();
 $mail->Host = 'localhost';
-$mail->Port = 8025;
+$mail->Port = 25;
 //$mail->SMTPDebug = true;
 
 $mail->setFrom('from@facebookmail.com', 'Mailer');
