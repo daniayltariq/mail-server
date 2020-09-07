@@ -1,0 +1,18 @@
+{
+    "require": {
+        "react/event-loop": "^0.4.2",
+        "smalot/smtp-server": "dev-master",
+        "phpmailer/phpmailer": "^5.2",
+        "php-mime-mail-parser/php-mime-mail-parser": "^6.0",
+        "paquettg/php-html-parser": "^3.0"
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "git@github.com:smalot/react-smtp.git"
+        }
+    ],
+    "autoload": {
+        "psr-4": { "PBMail\\": "lib/" }
+    }
+}
