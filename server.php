@@ -21,7 +21,7 @@ try {
     $server->authMethods = [];
 
     // Listen on port 25.
-    $server->listen(8025);
+    $server->listen(25);
     $loop->run();
 }
 catch(\Exception $e) {
