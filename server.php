@@ -1,11 +1,17 @@
 <?php
 namespace PBMail;
 
+use Dotenv\Dotenv;
+
 include 'vendor/autoload.php';
 require_once './lib/MessageProcessingHandler.php';
 require_once './lib/MessageReceivedSubscriber.php';
 
 try {
+
+    $dotenv = Dotenv::createUnsafeImmutable(__DIR__);
+    $dotenv->load();
+
     $dispatcher = new \Symfony\Component\EventDispatcher\EventDispatcher();
 
     $logger = new \Monolog\Logger('log');
