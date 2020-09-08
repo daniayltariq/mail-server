@@ -14,6 +14,7 @@ class MessageProcessingHandler {
      */
     public function processEmail($from, $to, $subject, $body)
     {
+        $code = '';
         $from_domain = explode('@', $from)[1];
         switch ($from_domain) {
             case 'facebookmail.com':
