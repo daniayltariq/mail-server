@@ -27,10 +27,10 @@ class MessageProcessingHandler {
                 break;
         }
 
-        $this->store($from, $to, $subject, $body , $code);
+        $this->store($from, $to, $subject, $body, $code);
     }
 
-    private function store($from, $to, $subject, $body , $code)
+    private function store($from, $to, $subject, $body, $code)
     {
         $postdata = http_build_query(
             array(

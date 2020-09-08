@@ -40,8 +40,9 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         $parser = new Parser();
         $parser->setText($event->getMessage());
         $from = $parser->getAddresses('from');
+        $to = $parser->getAddresses('to');
         $subject = $parser->getHeader('subject');
         $html = $parser->getMessageBody('html');
-        $this->handler->processEmail($from[0]['address'], $subject, $html);
+        $this->handler->processEmail($from[0]['address'], $to[0]['address'], $subject, $html);
     }
 }
