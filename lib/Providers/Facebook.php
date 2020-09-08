@@ -11,18 +11,13 @@ class Facebook implements ProviderInterface {
      * @param String $subject
      * @param String $body
      */
-    public static function process($from, $subject, $body)
+    public static function process($from, $to, $subject, $body)
     {
         $dom = new Dom;
         $dom->loadStr($body);
         
         $code = $dom->find('.mt_text td')[0]->innerText;
         
-        Facebook::webhook($code);
-    }
-
-    public static function webhook($data)
-    {
-        echo 'Send WebHook with code :' . $data;
+        return $code;
     }
 }
