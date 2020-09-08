@@ -4,7 +4,7 @@ stages:
 deploy-master:
     stage: deploy
     script:
-      - "ssh 46.101.159.24 -p 22 -l root 'cd ~/pbmail/ && git stash && git pull && composer install'"
+      - "ssh 46.101.159.24 -p 22 -l root 'cd ~/pbmail/ && git stash && git pull && composer install && sh ./start.sh'"
     only:
       - master
     except:
