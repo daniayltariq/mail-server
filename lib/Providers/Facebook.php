@@ -13,11 +13,14 @@ class Facebook implements ProviderInterface {
      */
     public static function process($from, $to, $subject, $body)
     {
-        $dom = new Dom;
-        $dom->loadStr($body);
-        
-        $code = $dom->find('.mt_text td')[0]->innerText;
-        
-        return $code;
+        try {
+            $dom = new Dom;
+            $dom->loadStr($body);
+            
+            $code = $dom->find('.mb_text td')[0]->innerText;
+            
+            return $code;
+        } catch (\Throwable $th) { }
+        return '';
     }
 }
