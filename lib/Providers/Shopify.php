@@ -7,15 +7,24 @@ use PHPHtmlParser\Dom;
 class Shopify implements ProviderInterface {
 
     /**
-     * @param String $from
-     * @param String $subject
-     * @param String $body
+     * Find verification code from shopify email.
+     * Returns the very first link found.
+     *
+     * @param string $from
+     * @param string $to
+     * @param string $subject
+     * @param string $body
+     * @return mixed|Event|string
      */
-    public static function process($from, $subject, $body)
+    public static function process($from, $to, $subject, $body)
     {
-        $dom = new Dom;
-        $dom->loadStr($body);
-        $a = $dom->find('a')[0];
-        echo 'Detected Link :' . $a;
+        try{
+            $dom = new Dom;
+            $dom->loadStr($body);
+            // returns first link
+            return $dom->find('a')[0];
+        }catch (\Throwable $th){
+            return '';
+        }
     }
 }
