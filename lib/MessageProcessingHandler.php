@@ -2,13 +2,17 @@
 
 namespace PBMail;
 
+use PBMail\Helpers\DbHelper;
 use PBMail\Providers\Facebook;
 use PBMail\Providers\Shopify;
 
 class MessageProcessingHandler {
 
     /**
+     * Detects email sender, extracts the verification code and saves email to db.
+     *
      * @param String $from
+     * @param String $to
      * @param String $subject
      * @param String $body
      */
@@ -31,29 +35,19 @@ class MessageProcessingHandler {
         $this->store($from, $to, $subject, $body, $code);
     }
 
+    /**
+     * Uses singleton DbHelper to save emails to db.
+     *
+     * @param String $from
+     * @param String $to
+     * @param String $subject
+     * @param String $body
+     * @param String $code
+     */
     private function store($from, $to, $subject, $body, $code)
     {
-        $postdata = http_build_query(
-            array(
-                'key' => 'pass',
-                'from' => $from,
-                'to' => $to,
-                'subject' => $subject,
-                'body' => $body,
-                'code' => $code
-            )
-        );
-        
-        $opts = array('http' =>
-            array(
-                'method'  => 'POST',
-                'header'  => 'Content-Type: application/x-www-form-urlencoded',
-                'content' => $postdata
-            )
-        );
-        
-        $context  = stream_context_create($opts);
-        
-        $result = file_get_contents(getenv('PBMAIL_DBAPI'), false, $context);
+        // We call the singleton object. Because we cannot create an instance explicitly.
+        $dbHelper = DbHelper::getInstance();
+        $dbHelper->storeEmail($from, $to, $subject, $body, $code);
     }
 }
