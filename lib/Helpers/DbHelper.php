@@ -24,7 +24,7 @@ class DbHelper
             'host' => getenv('DB_HOST'),
             'database' => getenv('DB_DATABASE'),
             'username' => getenv('DB_USERNAME'),
-            'password' => getenv('DB_USERNAME'),
+            'password' => getenv('DB_PASSWORD'),
             'emails_table' => getenv('DB_EMAILS_TABLE'),
             'domains_table' => getenv('DB_DOMAINS_TABLE'),
         ];
