@@ -80,8 +80,8 @@ class DbHelper
                 )
             );
             $preparedStatement->execute([
-                'from' => $from,
-                'to' => $to,
+                'from' => strtolower($from),
+                'to' => strtolower($to),
                 'subject' => $subject,
                 'body' => $body,
                 'code' => $code,
@@ -113,7 +113,7 @@ class DbHelper
             );
             // explode $to and get domain name
             $preparedStatement->execute([
-                'name' => explode('@', $to)[1]
+                'name' => strtolower(explode('@', $to)[1])
             ]);
             $domain = $preparedStatement->fetch();
             if(!$domain){
