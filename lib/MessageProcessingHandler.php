@@ -46,8 +46,14 @@ class MessageProcessingHandler {
      */
     private function store($from, $to, $subject, $body, $code)
     {
-        // We call the singleton object. Because we cannot create an instance explicitly.
-        $dbHelper = DbHelper::getInstance();
-        $dbHelper->storeEmail($from, $to, $subject, $body, $code);
+        try{
+            // We call the singleton object. Because we cannot create an instance explicitly.
+            $dbHelper = DbHelper::getInstance();
+            $dbHelper->connect();
+            $dbHelper->storeEmail($from, $to, $subject, $body, $code);
+            $dbHelper->closeConnection();
+        }catch(\Exception $e){
+
+        }
     }
 }

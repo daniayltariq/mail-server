@@ -28,11 +28,24 @@ class DbHelper
             'emails_table' => getenv('DB_EMAILS_TABLE'),
             'domains_table' => getenv('DB_DOMAINS_TABLE'),
         ];
+    }
+
+    /**
+     * connect to db.
+     */
+    public function connect(){
         $this->connection = new \PDO(
             sprintf("mysql:host=%s;dbname=%s", $this->config['host'], $this->config['database']),
             $this->config['username'],
             $this->config['password']
         );
+    }
+
+    /**
+     * close connection
+     */
+    public function closeConnection(){
+        $this->connection == null;
     }
 
     /**
