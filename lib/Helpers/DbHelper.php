@@ -162,7 +162,7 @@ class DbHelper
                 ],
                 CURLOPT_CUSTOMREQUEST  => "GET",                   // http method
             );
-            $curl = curl_init($this->config['emails_table'].'?id='.$emailId);
+            $curl = curl_init($this->config['webhook_api'].'?id='.$emailId);
             curl_setopt_array($curl, $options);
             $content = curl_exec($curl);
             $error = curl_error($curl);
