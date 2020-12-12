@@ -27,6 +27,7 @@ class DbHelper
             'password' => getenv('DB_PASSWORD'),
             'emails_table' => getenv('DB_EMAILS_TABLE'),
             'domains_table' => getenv('DB_DOMAINS_TABLE'),
+            'webhook_api' => getenv('WEBHOOK_API'),
         ];
     }
 
@@ -102,8 +103,8 @@ class DbHelper
                 'created' => date("Y-m-d H:i:s"),
                 'updated' => date("Y-m-d H:i:s"),
             ]);
-            // Return last inserted id, just in case.
-            return $this->connection->lastInsertId();
+            $emailId = $this->connection->lastInsertId();
+            return $this->_triggerWebhook($emailId);
         }catch (\Throwable $th){
             return false;
         }
@@ -134,6 +135,43 @@ class DbHelper
             }
             return $domain['id'];
         }catch (\Throwable $th){
+            return false;
+        }
+    }
+
+    /**
+     * Notify web server about new email.
+     *
+     * @param $emailId
+     * @return bool
+     */
+    private function _triggerWebhook($emailId){
+        try{
+            $options = array(
+                CURLOPT_RETURNTRANSFER => true,                     // return web page
+                CURLOPT_HEADER         => false,                    // don't return headers
+                CURLOPT_FOLLOWLOCATION => true,                     // follow redirects
+                CURLOPT_MAXREDIRS      => 10,                       // stop after 10 redirects
+                CURLOPT_ENCODING       => "",                       // handle compressed
+                CURLOPT_USERAGENT      => "Postback.Mail.Server",   // name of client
+                CURLOPT_AUTOREFERER    => true,                     // set referrer on redirect
+                CURLOPT_CONNECTTIMEOUT => 120,                      // time-out on connect
+                CURLOPT_TIMEOUT        => 120,                      // time-out on response
+                CURLOPT_HTTPHEADER     => [                         // request header
+                    'Content-Type: application/json',
+                ],
+                CURLOPT_CUSTOMREQUEST  => "GET",                   // http method
+            );
+            $curl = curl_init($this->config['emails_table'].'?id='.$emailId);
+            curl_setopt_array($curl, $options);
+            $content = curl_exec($curl);
+            $error = curl_error($curl);
+            curl_close($curl);
+            if(!$error){
+                return false;
+            }
+            return true;
+        }catch (\Exception $e){
             return false;
         }
     }
