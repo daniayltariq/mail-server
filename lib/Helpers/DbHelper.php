@@ -147,29 +147,7 @@ class DbHelper
      */
     private function _triggerWebhook($emailId){
         try{
-            $options = array(
-                CURLOPT_RETURNTRANSFER => true,                     // return web page
-                CURLOPT_HEADER         => false,                    // don't return headers
-                CURLOPT_FOLLOWLOCATION => true,                     // follow redirects
-                CURLOPT_MAXREDIRS      => 10,                       // stop after 10 redirects
-                CURLOPT_ENCODING       => "",                       // handle compressed
-                CURLOPT_USERAGENT      => "Postback.Mail.Server",   // name of client
-                CURLOPT_AUTOREFERER    => true,                     // set referrer on redirect
-                CURLOPT_CONNECTTIMEOUT => 120,                      // time-out on connect
-                CURLOPT_TIMEOUT        => 120,                      // time-out on response
-                CURLOPT_HTTPHEADER     => [                         // request header
-                    'Content-Type: application/json',
-                ],
-                CURLOPT_CUSTOMREQUEST  => "GET",                   // http method
-            );
-            $curl = curl_init($this->config['webhook_api'].'?id='.$emailId);
-            curl_setopt_array($curl, $options);
-            $content = curl_exec($curl);
-            $error = curl_error($curl);
-            curl_close($curl);
-            if(!$error){
-                return false;
-            }
+            $result = file_get_contents($this->config['webhook_api'].'?id='.$emailId);
             return true;
         }catch (\Exception $e){
             return false;
