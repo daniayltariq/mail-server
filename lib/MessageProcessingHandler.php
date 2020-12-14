@@ -4,6 +4,7 @@ namespace PBMail;
 
 use PBMail\Helpers\DbHelper;
 use PBMail\Providers\Facebook;
+use PBMail\Providers\Netlify;
 use PBMail\Providers\Shopify;
 
 class MessageProcessingHandler {
@@ -19,8 +20,16 @@ class MessageProcessingHandler {
     public function processEmail($from, $to, $subject, $body)
     {
         $code = '';
+        // Check if emails comes from addresses that platforms use tho send verification email not to run
+        // extra unnecessary processes.
+        if($from == 'team@netlify.com'){
+            $code = Netlify::process($from, $to, $subject, $body);
+        }
         $from_domain = explode('@', $from)[1];
         switch ($from_domain) {
+            case 'netlify.com':
+                $code = Netlify::process($from, $to, $subject, $body);
+                break;
             case 'facebookmail.com':
                 $code = Facebook::process($from, $to, $subject, $body);
                 break;
