@@ -43,7 +43,7 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         $username = null;
         try{
             $username = $event->getConnection()->getAuthMethod()->getUsername();
-        }catch(\Exception $e){
+        }catch(\Throwable $th){
             $username = null;
         }
         $parser = new Parser();
