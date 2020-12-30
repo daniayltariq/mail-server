@@ -25,8 +25,10 @@ class DbHelper
             'database' => getenv('DB_DATABASE'),
             'username' => getenv('DB_USERNAME'),
             'password' => getenv('DB_PASSWORD'),
+            'users_table' => getenv('DB_USERS_TABLE'),
             'emails_table' => getenv('DB_EMAILS_TABLE'),
             'domains_table' => getenv('DB_DOMAINS_TABLE'),
+            'account_domain_emails_table' => getenv('DB_ACCOUNT_DOMAIN_EMAILS_TABLE'),
             'webhook_api' => getenv('WEBHOOK_API'),
         ];
     }
@@ -45,7 +47,7 @@ class DbHelper
     /**
      * close connection
      */
-    public function closeConnection(){
+    public function disconnect(){
         $this->connection == null;
     }
 
@@ -77,7 +79,7 @@ class DbHelper
     public function storeEmail($from, $to, $subject, $body, $code){
         // Users are associated with domains, and all emails are associated with domain.
         // Therefore, we need to find out the related domain for the incoming email.
-        $domainId = $this->_findDomainFromIncomingEmail($to);
+        $domainId = $this->findDomain($to);
         if(!$domainId){
             // Early return:
             // If domain id cannot be found there is no need to continue. Because, domain_id in emails table
@@ -111,23 +113,53 @@ class DbHelper
     }
 
     /**
-     * Find the related domain name from incoming email's target email address ($to) and return domain id.
+     * Find user and return password.
+     * This function will be used to authenticate smtp requests to send emails.
+     * $username is 'email'
+     *
+     * @param $username
+     * @return false
+     */
+    public function getPasswordForUsername($username){
+        try{
+            // Get user password
+            $preparedStatement = $this->connection->prepare(
+                sprintf(
+                    "SELECT password FROM %s WHERE email=:username",
+                    $this->config['users_table']
+                )
+            );
+            $preparedStatement->execute([
+                'username' => strtolower($username)
+            ]);
+            $userPassword = $preparedStatement->fetch();
+            if(!$userPassword){
+                return false;
+            }
+            return $userPassword['password'];
+        }catch (\Throwable $th){
+            return false;
+        }
+    }
+
+    /**
+     * Find the related domain name for the given email address and return domain id.
      * Domain id will be used to associate emails to domains.
      * This function returns false if an error occurs or if domain name cannot be found.
      *
-     * @param $to
+     * @param $emailAddress
      * @return false
      */
-    private function _findDomainFromIncomingEmail($to){
+    public function findDomain($emailAddress){
         try{
             // select only id because only id is needed.
             // set limit to 1 to make it more efficient.
             $preparedStatement = $this->connection->prepare(
-                sprintf("SELECT id FROM %s WHERE name=:name LIMIT 1", $this->config['domains_table'])
+                sprintf("SELECT id FROM %s WHERE name=:name AND is_configured=1 LIMIT 1", $this->config['domains_table'])
             );
             // explode $to and get domain name
             $preparedStatement->execute([
-                'name' => strtolower(explode('@', $to)[1])
+                'name' => strtolower(explode('@', $emailAddress)[1])
             ]);
             $domain = $preparedStatement->fetch();
             if(!$domain){
@@ -135,6 +167,221 @@ class DbHelper
             }
             return $domain['id'];
         }catch (\Throwable $th){
+            return false;
+        }
+    }
+
+    /**
+     * Find the related domain name for the given email address and return domain id.
+     * Domain id will be used to associate emails to domains.
+     * This function returns false if an error occurs or if domain name cannot be found.
+     *
+     * @param $emailAddress
+     * @return false
+     */
+    public function findDomainShort($emailAddress){
+        try{
+            $this->connect();
+            // select only id because only id is needed.
+            // set limit to 1 to make it more efficient.
+            $preparedStatement = $this->connection->prepare(
+                sprintf("SELECT id FROM %s WHERE name=:name AND is_configured=1 LIMIT 1", $this->config['domains_table'])
+            );
+            // explode $to and get domain name
+            $preparedStatement->execute([
+                'name' => strtolower(explode('@', $emailAddress)[1])
+            ]);
+            $domain = $preparedStatement->fetch();
+            if(!$domain){
+                return false;
+            }
+            $this->disconnect();
+            return $domain['id'];
+        }catch (\Throwable $th){
+            return false;
+        } finally {
+            $this->disconnect();
+        }
+    }
+
+    /**
+     * Find the related domain dkim rsa private key string for the given domain name.
+     * Domain rsa private key string will be used to sign outgoing emails.
+     * This function returns false if an error occurs or if domain name cannot be found.
+     *
+     * @param $domainName
+     * @return false
+     */
+    public function findDomainDKIM($domainName){
+        try{
+            $this->connect();
+            // select only id because only id is needed.
+            // set limit to 1 to make it more efficient.
+            $preparedStatement = $this->connection->prepare(
+                sprintf("SELECT rsa_private FROM %s WHERE name=:name AND is_configured=1 LIMIT 1", $this->config['domains_table'])
+            );
+            // explode $to and get domain name
+            $preparedStatement->execute([
+                'name' => $domainName
+            ]);
+            $domain = $preparedStatement->fetch();
+            if(!$domain){
+                return false;
+            }
+            $this->disconnect();
+            return $domain['rsa_private'];
+        }catch (\Throwable $th){
+            return false;
+        } finally {
+            $this->disconnect();
+        }
+    }
+
+
+    /**
+     * Check if user has permission to send email.
+     *
+     * @param $username
+     * @param $emailAddress
+     * @return bool
+     */
+    public function checkUserPermission($username, $emailAddress){
+        try{
+            // Find user by username (email) and if user does not exists then return false.
+            $user = $this->_findUserByEmail($username);
+            if(!$user){
+                return false;
+            }
+            // Check if user mailbox user or not
+            $userCreatedBy = $user['created_by_id'];
+            $domain = explode('@', $emailAddress)[1];
+            if($userCreatedBy){
+                // User is mailbox user. Check assigned emails.
+                // Chek if main use who created mailbox user owns this domain
+                // If owner has not such domain or if it is not configured,
+                // then mailbox user has no permission to send email from this domain
+                $domainExists = $this->_checkDomainByCreatedById($domain, $userCreatedBy);
+                if(!$domainExists){
+                    return false;
+                }
+                // Check if assigned email exists for the mailbox user.
+                // If it does not exist then return false. User has no permission to send email.
+                $assignedEmailExists = $this->_checkAssignedEmailByUserId($emailAddress, $user['id']);
+                if(!$assignedEmailExists){
+                    return false;
+                }
+            }else{
+                // User is main user. Check his own configured domains.
+                // If domain name is found for the user and if ti is configured,
+                // then main user has permission to send email.
+                $domainExists = $this->_checkDomainByCreatedById($domain, $user['id']);
+                if(!$domainExists){
+                    return false;
+                }
+            }
+            // If we did not return false till here, this means user has permission to send email from this domain.
+            return true;
+        }catch (\Exception $e){
+            return false;
+        }
+    }
+
+    /**
+     * Check if domain name is configured and created by the given user id.
+     *
+     * @param $domain
+     * @param $createdById
+     * @return bool
+     */
+    private function _checkDomainByCreatedById($domain, $createdById){
+        try{
+            $this->connect();
+            // Find domain name.
+            $preparedStatement = $this->connection->prepare(
+                sprintf(
+                    "SELECT id FROM %s WHERE name=:domain AND is_configured=1 AND created_by_id=:userid LIMIT 1",
+                    $this->config['domains_table']
+                )
+            );
+            $preparedStatement->execute([
+                'domain' => strtolower($domain),
+                'userid' => $createdById
+            ]);
+            $domainExists = $preparedStatement->fetch();
+            $this->disconnect();
+            // If domain name is not found then return false.
+            if(!$domainExists){
+                return false;
+            }
+            return true;
+        }catch (\Exception $e){
+            $this->disconnect();
+            return false;
+        }
+    }
+
+    /**
+     * Check if assigned email exists for mailbox user.
+     *
+     * @param $email
+     * @param $userId
+     * @return bool
+     */
+    private function _checkAssignedEmailByUserId($email, $userId){
+        try{
+            $this->connect();
+            // Find domain name.
+            $preparedStatement = $this->connection->prepare(
+                sprintf(
+                    "SELECT id FROM %s WHERE email=:email AND user_id=:userid LIMIT 1",
+                    $this->config['account_domain_emails_table']
+                )
+            );
+            $preparedStatement->execute([
+                'email' => strtolower($email),
+                'userid' => $userId
+            ]);
+            $assignedEmailExists = $preparedStatement->fetch();
+            // If assigned email is not found then return false.
+            $this->disconnect();
+            if(!$assignedEmailExists){
+                return false;
+            }
+            return true;
+        }catch (\Exception $e){
+            $this->disconnect();
+            return false;
+        }
+    }
+
+    /**
+     * Find user by email.
+     * Return id and created_by_id only if user is found. Otherwise return false.
+     *
+     * @param $email
+     * @return bool
+     */
+    private function _findUserByEmail($email){
+        try{
+            $this->connect();
+            // Find user
+            $preparedStatement = $this->connection->prepare(
+                sprintf(
+                    "SELECT id,created_by_id FROM %s WHERE email=:email LIMIT 1",
+                    $this->config['users_table']
+                )
+            );
+            $preparedStatement->execute([
+                'email' => strtolower($email)
+            ]);
+            $user = $preparedStatement->fetch();
+            $this->disconnect();
+            if(!$user){
+                return false;
+            }
+            return $user;
+        }catch (\Exception $e){
+            $this->disconnect();
             return false;
         }
     }
