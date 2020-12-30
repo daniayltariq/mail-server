@@ -1,5 +1,6 @@
 stages:
     - deploy
+    - test
  
 deploy-master:
     stage: deploy
@@ -9,5 +10,15 @@ deploy-master:
       - master
     except:
       - development
+    retry: 1
+    
+test-development:
+    stage: test
+    script:
+      - "ssh 167.172.155.151 -p 22 -l root 'cd ~/pbmail-server/ && git stash && git pull && pkill -9 php && composer install && sh ./start.sh'"
+    only:
+      - development
+    except:
+      - master
     retry: 1
     
