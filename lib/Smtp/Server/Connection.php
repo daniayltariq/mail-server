@@ -97,7 +97,7 @@ class Connection extends Stream implements ConnectionInterface
     /**
      * @var string
      */
-    protected $banner = 'Welcome to ReactPHP SMTP Server';
+    protected $banner = 'Welcome to PostBack,Email SMTP Server';
 
     /**
      * @var bool Accept messages by default
