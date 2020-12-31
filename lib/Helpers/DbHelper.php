@@ -105,7 +105,14 @@ class DbHelper
                 'updated' => date("Y-m-d H:i:s"),
             ]);
             $emailId = $this->connection->lastInsertId();
-            return $this->_triggerWebhook($emailId);
+            // If domain id is found then this is an email that comes to one of our domain.
+            // User may setup webhook and we have to process. Therefore, trigger the webhook.
+            // If domain id is not found this mean this is an outgoing email that goes to unknown domain.
+            // Return true in this case.
+            if($domainId){
+                return $this->_triggerWebhook($emailId);
+            }
+            return true;
         }catch (\Throwable $th){
             return false;
         }
@@ -235,7 +242,6 @@ class DbHelper
             $this->disconnect();
         }
     }
-
 
     /**
      * Check if user has permission to send email.
