@@ -15,7 +15,7 @@ deploy-master:
 test-development:
     stage: test
     script:
-      - "ssh 167.172.155.151 -p 22 -l root 'cd ~/pbmail-server/ && git stash && git pull && pkill -9 php && composer install && sh ./start.sh'"
+      - "ssh 64.225.17.165 -p 22 -l root 'cd ~/pbmail-server/ && git stash && git pull && pkill -9 php && composer install && sh ./start.sh'"
     only:
       - development
     except:
