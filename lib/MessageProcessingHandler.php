@@ -133,13 +133,16 @@ class MessageProcessingHandler {
     private function store($from, $to, $subject, $body, $code)
     {
         try{
+            echo json_encode('EMAIL STORE INITIATED').PHP_EOL;
             // We call the singleton object. Because we cannot create an instance explicitly.
             $dbHelper = DbHelper::getInstance();
             $dbHelper->connect();
             $dbHelper->storeEmail($from, $to, $subject, $body, $code);
             $dbHelper->disconnect();
+            echo json_encode('EMAIL STORE COMPLETED').PHP_EOL;
             return true;
         }catch(\Exception $e){
+            echo json_encode($e->getMessage()).PHP_EOL;
             return false;
         }
     }
