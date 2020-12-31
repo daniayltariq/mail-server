@@ -42,7 +42,7 @@ class MailHelper
                 echo json_encode(sprintf('DKIM RSA key not found for <%s>.', $from)).PHP_EOL;
                 return false;
             }
-            $mail->DKIM_private_string = $domainDKIM;
+            $mail->DKIM_private = $domainDKIM;
             //Set the selector. we are setting selector as 'default'
             $mail->DKIM_selector = 'default';
             //The identity you're signing as - usually your From address
