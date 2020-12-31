@@ -37,6 +37,7 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
      */
     public function onMessageReceived(MessageReceivedEvent $event)
     {
+        echo json_encode('MESSAGE RECEIVED INITIATED').PHP_EOL;
         // Check if user authenticated and if authenticated get the username (email of the user).
         // We will use this username in processEmail function if this is an outgoing email
         // to authorize users if they have permission to send email on the domain or not.
@@ -46,12 +47,23 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         }catch(\Throwable $th){
             $username = null;
         }
+        echo json_encode([
+            'username' => $username
+            ]).PHP_EOL;
         $parser = new Parser();
         $parser->setText($event->getMessage());
         $from = $parser->getAddresses('from');
         $to = $parser->getAddresses('to');
         $subject = $parser->getHeader('subject');
         $html = $parser->getMessageBody('html');
+
+        echo json_encode([
+                'parser' => $parser,
+                'from' => $from,
+                'to' => $to,
+                'subject' => $subject,
+                'html' => $html,
+            ]).PHP_EOL;
         $this->handler->processEmail($from[0]['address'], $from[0]['display'], $to[0]['address'], $subject, $html, $username);
     }
 }

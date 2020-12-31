@@ -21,6 +21,7 @@ class MailHelper
      */
     public static function sendMail($from, $fromName, $to, $subject, $htmlBody){
         try{
+            echo json_encode('SENDMAIL INITIATED').PHP_EOL;
             $mail = new PHPMailer(true);
             $mail->addAddress($to);
             $mail->Subject = $subject;
@@ -35,6 +36,8 @@ class MailHelper
             //Find private key from domains table
             $dbHelper = DbHelper::getInstance();
             $domainDKIM = $dbHelper->findDomainDKIM($domain);
+
+            echo json_encode(['dkim' => $domainDKIM]).PHP_EOL;
             if(!$domainDKIM){
                 echo json_encode(sprintf('DKIM RSA key not found for <%s>.', $from)).PHP_EOL;
                 return false;
@@ -46,6 +49,8 @@ class MailHelper
             $mail->DKIM_identity = $from;
             //Suppress listing signed header fields in signature, defaults to true for debugging purpose
             $mail->DKIM_copyHeaderFields = false;
+
+            echo json_encode(['mail' => $mail]).PHP_EOL;
             $mail->send();
             echo json_encode(sprintf('Email sent from <%s> to <%s>.', $from, $to)).PHP_EOL;
             return true;
