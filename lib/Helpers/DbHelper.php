@@ -79,12 +79,11 @@ class DbHelper
     public function storeEmail($from, $to, $subject, $body, $code){
         // Users are associated with domains, and all emails are associated with domain.
         // Therefore, we need to find out the related domain for the incoming email.
+        // If domain is not found, then this is outgoing email. set domain id to null.
         $domainId = $this->findDomain($to);
-        if(!$domainId){
-            // Early return:
-            // If domain id cannot be found there is no need to continue. Because, domain_id in emails table
-            // cannot be null.
-            return false;
+        $domain = null;
+        if($domainId){
+            $domain = $domainId;
         }
         try{
             // Save email to emails table
@@ -101,7 +100,7 @@ class DbHelper
                 'subject' => $subject,
                 'body' => $body,
                 'code' => $code,
-                'domain' => $domainId,
+                'domain' => $domain,
                 'created' => date("Y-m-d H:i:s"),
                 'updated' => date("Y-m-d H:i:s"),
             ]);
@@ -395,6 +394,9 @@ class DbHelper
     private function _triggerWebhook($emailId){
         try{
             $result = file_get_contents($this->config['webhook_api'].'?id='.$emailId);
+            echo json_encode([
+                    'webhook' => $result
+                ]).PHP_EOL;
             return true;
         }catch (\Exception $e){
             return false;
