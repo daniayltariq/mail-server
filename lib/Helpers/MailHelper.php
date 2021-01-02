@@ -17,9 +17,11 @@ class MailHelper
      * @param $to
      * @param $subject
      * @param $htmlBody
+     * @param $inReplyTo
+     * @param $references
      * @return bool
      */
-    public static function sendMail($from, $fromName, $to, $subject, $htmlBody){
+    public static function sendMail($from, $fromName, $to, $subject, $htmlBody, $inReplyTo, $references){
         try{
             $mail = new PHPMailer(true);
             $mail->addAddress($to);
@@ -30,6 +32,16 @@ class MailHelper
             $domain = explode('@', $from)[1];
             $mail->addReplyTo($from, $fromName);
             $mail->setFrom($from, $fromName);
+
+            // If $inReplyTo and $references are provided, this means email will be sent as a reply to another email.
+            // Therefore, add In-Reply-To and References headers to the mail in this case.
+            // In-Reply-To and References headers will contain the same value,
+            // but we use two different variables to have more control over them just in case.
+            if(isset($inReplyTo) && isset($references) && $inReplyTo != '' && $references != ''){
+                $mail->addCustomHeader('In-Reply-To', $inReplyTo);
+                $mail->addCustomHeader('References', $references);
+            }
+
             //This should be the same as the domain of your From address
             $mail->DKIM_domain = $domain;
             //Find private key from domains table

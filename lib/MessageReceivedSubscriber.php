@@ -52,9 +52,25 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         $to = $parser->getAddresses('to');
         $subject = $parser->getHeader('subject');
         $html = $parser->getMessageBody('html');
-        // Message id will be used to reply emails.
+        // Message-ID is the identifier for email. This will be used to identify replied emails.
         $messageId = $parser->getHeader('Message-ID');
+        // In-Reply-To and References headers mean that
+        // email is sent as a reply to an email identified by id
+        // in In-Reply-To and References headers.
+        // getHeader will return false if these headers do not exists. In this case assign null to these variables.
+        $inReplyTo = $parser->getHeader('In-Reply-To') ? $parser->getHeader('In-Reply-To') : null;
+        $references = $parser->getHeader('References') ? $parser->getHeader('References') : null;
 
-        $this->handler->processEmail($from[0]['address'], $from[0]['display'], $to[0]['address'], $subject, $html, $username, $messageId);
+        $this->handler->processEmail(
+            $from[0]['address'],
+            $from[0]['display'],
+            $to[0]['address'],
+            $subject,
+            $html,
+            $username,
+            $messageId,
+            $inReplyTo,
+            $references
+        );
     }
 }

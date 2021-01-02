@@ -75,9 +75,11 @@ class DbHelper
      * @param $body
      * @param $code
      * @param $messageId
+     * @param $inReplyTo
+     * @param $references
      * @return false|string
      */
-    public function storeEmail($from, $to, $subject, $body, $code, $messageId){
+    public function storeEmail($from, $to, $subject, $body, $code, $messageId, $inReplyTo, $references){
         // Users are associated with domains, and all emails are associated with domain.
         // Therefore, we need to find out the related domain for the incoming email.
         // If domain is not found, then this is outgoing email. set domain id to null.
@@ -90,8 +92,8 @@ class DbHelper
             // Save email to emails table
             $preparedStatement = $this->connection->prepare(
                 sprintf(
-                    "INSERT INTO %s (email_from, email_to, subject, body, code, domain_id, message_id, created_at, updated_at)
-                    VALUES (:from, :to, :subject, :body, :code, :domain, :messageId, :created, :updated)",
+                    "INSERT INTO %s (email_from, email_to, subject, body, code, domain_id, message_id, in_reply_to, references, created_at, updated_at)
+                    VALUES (:from, :to, :subject, :body, :code, :domain, :messageId, :inReplyTo, :references, :created, :updated)",
                     $this->config['emails_table']
                 )
             );
@@ -103,6 +105,8 @@ class DbHelper
                 'code' => $code,
                 'domain' => $domain,
                 'messageId' => $messageId,
+                'inReplyTo' => $inReplyTo,
+                'references' => $references,
                 'created' => date("Y-m-d H:i:s"),
                 'updated' => date("Y-m-d H:i:s"),
             ]);
