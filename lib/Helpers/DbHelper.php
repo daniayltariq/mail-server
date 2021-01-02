@@ -92,8 +92,8 @@ class DbHelper
             // Save email to emails table
             $preparedStatement = $this->connection->prepare(
                 sprintf(
-                    "INSERT INTO %s (email_from, email_to, subject, body, code, domain_id, message_id, in_reply_to, references, created_at, updated_at)
-                    VALUES (:from, :to, :subject, :body, :code, :domain, :messageId, :inReplyTo, :references, :created, :updated)",
+                    "INSERT INTO %s (email_from, email_to, subject, body, code, domain_id, message_id, in_reply_to, reference, created_at, updated_at)
+                    VALUES (:from, :to, :subject, :body, :code, :domain, :messageId, :inReplyTo, :reference, :created, :updated)",
                     $this->config['emails_table']
                 )
             );
@@ -106,7 +106,7 @@ class DbHelper
                 'domain' => $domain,
                 'messageId' => $messageId,
                 'inReplyTo' => $inReplyTo,
-                'references' => $references,
+                'reference' => $references,
                 'created' => date("Y-m-d H:i:s"),
                 'updated' => date("Y-m-d H:i:s"),
             ]);
