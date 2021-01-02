@@ -400,9 +400,6 @@ class DbHelper
     private function _triggerWebhook($emailId){
         try{
             $result = file_get_contents($this->config['webhook_api'].'?id='.$emailId);
-            echo json_encode([
-                    'webhook' => $result
-                ]).PHP_EOL;
             return true;
         }catch (\Exception $e){
             return false;

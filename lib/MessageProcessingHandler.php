@@ -25,31 +25,20 @@ class MessageProcessingHandler {
      */
     public function processEmail($from, $fromName, $to, $subject, $body, $username)
     {
-        echo json_encode('PROCESS EMAIL INITIATED').PHP_EOL;
         $dbHelper = DbHelper::getInstance();
         $fromDomain = $dbHelper->findDomainShort($from);
         $toDomain = $dbHelper->findDomainShort($to);
-
-        echo json_encode([
-                'fromDomain' => $fromDomain,
-                'toDomain' => $toDomain,
-            ]).PHP_EOL;
 
         if($fromDomain){
             // Email is sent from our domain
             // First of all check if user has permission to send emails from this domain.
             // Continue only when user has permission.
             if($dbHelper->checkUserPermission($username, $from)){
-
-                echo json_encode('USER HAS PERMISSION').PHP_EOL;
                 if($toDomain){
-
-                    echo json_encode('EMAIL IS SENT TO OUR DOMAIN').PHP_EOL;
                     // Email is sent to our domain.
                     // In this case save email directly to db
                     $this->store($from, $to, $subject, $body,'');
                 }else{
-                    echo json_encode('EMAIL IS NOT SENT TO OUR DOMAIN').PHP_EOL;
                     // Email is sent to another domain.
                     // Relay email in this case.
                     $sent = MailHelper::sendMail($from, $fromName, $to, $subject, $body);
@@ -65,16 +54,12 @@ class MessageProcessingHandler {
                 }
             }
         }else{
-
-            echo json_encode('USER HAS PERMISSION (NOT FROM OUR DOMAIN)').PHP_EOL;
             // Email is not sent from our domains.
             // This is an incoming email.
             // Check if email comes to one of our domains. If receiver is not one of our domains then dont to anything.
             // If receiver is one of our domains then process the email for possible verification code and then save it.
             if($toDomain){
-                echo json_encode('TO OUR DOMAIN').PHP_EOL;
                 $code = $this->extractVerificationCode($from, $to, $subject, $body);
-                echo json_encode(['code' => $code]).PHP_EOL;
                 $this->store($from, $to, $subject, $body, $code);
                 echo json_encode('EMAIL SAVED').PHP_EOL;
             }
@@ -133,16 +118,14 @@ class MessageProcessingHandler {
     private function store($from, $to, $subject, $body, $code)
     {
         try{
-            echo json_encode('EMAIL STORE INITIATED').PHP_EOL;
             // We call the singleton object. Because we cannot create an instance explicitly.
             $dbHelper = DbHelper::getInstance();
             $dbHelper->connect();
             $dbHelper->storeEmail($from, $to, $subject, $body, $code);
             $dbHelper->disconnect();
-            echo json_encode('EMAIL STORE COMPLETED').PHP_EOL;
             return true;
         }catch(\Exception $e){
-            echo json_encode($e->getMessage()).PHP_EOL;
+            echo json_encode('An error occurred while saving email to db').PHP_EOL;
             return false;
         }
     }
