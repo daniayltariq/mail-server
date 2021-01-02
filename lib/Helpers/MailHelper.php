@@ -28,8 +28,8 @@ class MailHelper
             $mail->isHTML(true);
             // get domain from email
             $domain = explode('@', $from)[1];
-            $mail->setFrom($from, $fromName);
             $mail->addReplyTo($from, $fromName);
+            $mail->setFrom($from, $fromName);
             //This should be the same as the domain of your From address
             $mail->DKIM_domain = $domain;
             //Find private key from domains table
@@ -50,7 +50,7 @@ class MailHelper
 
             $mail->send();
             echo json_encode(sprintf('Email sent from <%s> to <%s>.', $from, $to)).PHP_EOL;
-            return true;
+            return $mail->getLastMessageID();
         }catch (\Exception $e){
             echo json_encode(sprintf('Email is not sent from <%s> to <%s>.', $from, $to)).PHP_EOL;
             return false;

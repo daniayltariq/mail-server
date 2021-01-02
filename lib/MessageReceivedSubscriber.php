@@ -52,7 +52,9 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         $to = $parser->getAddresses('to');
         $subject = $parser->getHeader('subject');
         $html = $parser->getMessageBody('html');
+        // Message id will be used to reply emails.
+        $messageId = $parser->getHeader('Message-ID');
 
-        $this->handler->processEmail($from[0]['address'], $from[0]['display'], $to[0]['address'], $subject, $html, $username);
+        $this->handler->processEmail($from[0]['address'], $from[0]['display'], $to[0]['address'], $subject, $html, $username, $messageId);
     }
 }
