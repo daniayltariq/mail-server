@@ -1,43 +1,53 @@
 <?php
 namespace PBMail;
 
+//use Dotenv\Dotenv;
+
+//use PBMail\Smtp\Server as SMTP;
+//use PBMail\IMAP\Server as IMAP;
+
+//use PBMail\Smtp\Server\Connection;
+//use PBMail\Smtp\Server\Event\LogSubscriber as SMTPLogSubscriber;
+//use PBMail\Smtp\Server\Server as SMTPServer;
+//use PBMail\Imap\Event\LogSubscriber as ImapLogSubscriber;
+//use PBMail\IMAP\Server\Server as IMAPServer;
 use Dotenv\Dotenv;
-use PBMail\Smtp\Server\Connection;
-use PBMail\Smtp\Server\Event\LogSubscriber;
-use PBMail\Smtp\Server\Server;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
 include 'vendor/autoload.php';
 require_once './lib/MessageProcessingHandler.php';
 require_once './lib/MessageReceivedSubscriber.php';
 
-try {
 
-    $dotenv = Dotenv::createUnsafeImmutable(__DIR__);
-    $dotenv->load();
+$env = Dotenv::createUnsafeImmutable(__DIR__);
+$env->load();
 
-    $dispatcher = new EventDispatcher();
 
-    $logger = new \Monolog\Logger('log');
-    $dispatcher->addSubscriber(new LogSubscriber($logger));
+try{
 
-    $msgHandler = new MessageProcessingHandler();
-    $dispatcher->addSubscriber(new MessageReceivedSubscriber($msgHandler));
 
-    $loop = \React\EventLoop\Factory::create();
-    $server = new Server($loop, $dispatcher);
+    $app = App::make();
 
-    // Enable 3 authentication methods.
-    $server->authMethods = [
-        Connection::AUTH_METHOD_LOGIN,
-        Connection::AUTH_METHOD_CRAM_MD5,
-    ];
 
-    // Listen on port 25.
-    $server->listen(25, '0.0.0.0');
+    // Start SMTP server for this application.
+    $smtp = $app->useSmtpServer([
+        'host' => '0.0.0.0',
+        'port' => 25,
+    ]);
 
-    $loop->run();
-}
-catch(\Exception $e) {
-    var_dump($e);
+
+    // Start IMAP server for this application.
+    $imap = $app->useImapServer([
+        'host' => '0.0.0.0',
+        'port' => 143,
+    ]);
+
+
+    $app->run();
+
+
+}catch (\Throwable $e){
+
+    var_dump( $e );
+
 }
