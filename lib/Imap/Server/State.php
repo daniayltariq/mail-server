@@ -45,10 +45,9 @@ class State
      * Set a state option.
      *
      * @param string $state
-     * @param $value
      * @return mixed|null
      */
-    public function get(string $state, $value){
+    public function get(string $state){
         return $this->state[ $state ] ?? null;
     }
 
@@ -56,14 +55,56 @@ class State
     /**
      * Check if a state option has a specific value.
      *
-     * @param string $state
-     * @param $value
-     * @param false $strict
+     * Send either an array with key value pairs or string in
+     * the first parameter and value in second parameter.
+     *
+     * The last parameter (boolean) is for strict comparison.
+     * By default it is set to false.
+     *
+     * If using array the 2nd parameter will be used as strict
+     * comparison flag.
+     *
+     * @param string|array $state
+     * @param mixed $value
+     * @param mixed ...$args
      * @return bool
      */
-    public function is(string $state, $value, $strict = false): bool
+    public function is($state, $value, ...$args): bool
     {
-        return $strict ? $state === $value : $state == $value;
+
+        if( is_string( $state ) ){
+            $value = $args[ 1 ];
+            $strict = $args[ 2 ] ?? false;
+            return $strict ? $state === $value : $state == $value;
+        }
+
+        /**
+         * If the state comparer is an array then we will check
+         * for key value pairs as the state option and their values.
+         */
+        if( is_array( $state ) ){
+
+            /**
+             * The 2nd parameter will be used as strict comparison flag.
+             */
+            $strict = $value;
+
+
+            /**
+             * Return false if any of the value fails.
+             * Returns true if all key-value pairs matches the state.
+             */
+            foreach ( $state as $key => $val ){
+                if( !$this->is( $key, $val, $strict ) ){
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return false;
+
     }
 
 

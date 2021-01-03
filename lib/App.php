@@ -84,12 +84,12 @@ class App
      *    [
      *        'log' => 'imap_log',
      *        'host' => '127.0.0.1',
-     *        'port' => 25,
+     *        'port' => 143,
      *    ]
      *
      * @param array $options
      *
-     * @return Smtp\Server
+     * @return Imap\Server
      */
     public function useImapServer(array $options): Imap\Server
     {

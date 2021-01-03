@@ -1,18 +1,7 @@
 <?php
 namespace PBMail;
 
-//use Dotenv\Dotenv;
-
-//use PBMail\Smtp\Server as SMTP;
-//use PBMail\IMAP\Server as IMAP;
-
-//use PBMail\Smtp\Server\Connection;
-//use PBMail\Smtp\Server\Event\LogSubscriber as SMTPLogSubscriber;
-//use PBMail\Smtp\Server\Server as SMTPServer;
-//use PBMail\Imap\Event\LogSubscriber as ImapLogSubscriber;
-//use PBMail\IMAP\Server\Server as IMAPServer;
 use Dotenv\Dotenv;
-use Symfony\Component\EventDispatcher\EventDispatcher;
 
 include 'vendor/autoload.php';
 require_once './lib/MessageProcessingHandler.php';
