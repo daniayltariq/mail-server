@@ -34,6 +34,14 @@ class DbHelper
     }
 
     /**
+     * @return \PDO
+     */
+    public function connection(): \PDO
+    {
+        return $this->connection;
+    }
+
+    /**
      * connect to db.
      */
     public function connect(){
@@ -77,9 +85,10 @@ class DbHelper
      * @param $messageId
      * @param $inReplyTo
      * @param $references
+     * @param string $rawEmail
      * @return false|string
      */
-    public function storeEmail($from, $to, $subject, $body, $code, $messageId, $inReplyTo, $references){
+    public function storeEmail($from, $to, $subject, $body, $code, $messageId, $inReplyTo, $references, $rawEmail = ''){
         // Users are associated with domains, and all emails are associated with domain.
         // Therefore, we need to find out the related domain for the incoming email.
         // If domain is not found, then this is outgoing email. set domain id to null.
@@ -91,9 +100,12 @@ class DbHelper
         try{
             // Save email to emails table
             $preparedStatement = $this->connection->prepare(
-                sprintf(
-                    "INSERT INTO %s (email_from, email_to, subject, body, code, domain_id, message_id, in_reply_to, reference, created_at, updated_at)
-                    VALUES (:from, :to, :subject, :body, :code, :domain, :messageId, :inReplyTo, :reference, :created, :updated)",
+                sprintf("
+                    INSERT INTO %s (
+                        email_from, email_to, subject, body, raw_email, code, domain_id,
+                        message_id, in_reply_to, reference, created_at, updated_at
+                    )VALUES (:from, :to, :subject, :body, :rawEmail, :code, :domain, :messageId, :inReplyTo, :reference, :created, :updated)
+                ",
                     $this->config['emails_table']
                 )
             );
@@ -102,6 +114,7 @@ class DbHelper
                 'to' => strtolower($to),
                 'subject' => $subject,
                 'body' => $body,
+                'rawEmail' => $rawEmail,
                 'code' => $code,
                 'domain' => $domain,
                 'messageId' => $messageId,
@@ -149,6 +162,35 @@ class DbHelper
                 return false;
             }
             return $userPassword['password'];
+        }catch (\Throwable $th){
+            return false;
+        }
+    }
+
+
+
+    /**
+     * Find user by its username.
+     * $username is 'email'
+     *
+     * @param $username
+     * @return false
+     */
+    public function getUserForUsername($username){
+        try{
+            // Get user password
+            $preparedStatement = $this->connection->prepare(
+                sprintf(
+                    "SELECT * FROM %s WHERE email=:username",
+                    $this->config['users_table']
+                )
+            );
+            $preparedStatement->execute([
+                'username' => strtolower($username)
+            ]);
+
+            return $preparedStatement->fetch();
+
         }catch (\Throwable $th){
             return false;
         }

@@ -4,22 +4,14 @@
 namespace PBMail\Imap\Server;
 
 
+use PBMail\Imap\Server\Traits\Makeable;
+
 class State
 {
 
+    use Makeable;
+
     protected $state;
-
-
-    /**
-     * Create a new instance of State.
-     *
-     * @param mixed ...$args
-     * @return State
-     */
-    public static function make(...$args): State
-    {
-        return new static(...$args);
-    }
 
     /**
      * Create a new State.
@@ -42,13 +34,25 @@ class State
     }
 
     /**
+     * Unset a state option.
+     *
+     * @param string $state
+     */
+    public function unset(string $state){
+        if( $this->state[ $state ] ?? false ){
+            unset( $this->state[ $state ] );
+        }
+    }
+
+    /**
      * Set a state option.
      *
      * @param string $state
-     * @return mixed|null
+     * @param null $default
+     * @return mixed|null Returns the state value or $default if state does not exist.
      */
-    public function get(string $state){
-        return $this->state[ $state ] ?? null;
+    public function get(string $state, $default = null){
+        return $this->state[ $state ] ?? $default;
     }
 
 
@@ -72,39 +76,99 @@ class State
     public function is($state, $value, ...$args): bool
     {
 
-        if( is_string( $state ) ){
-            $value = $args[ 1 ];
-            $strict = $args[ 2 ] ?? false;
-            return $strict ? $state === $value : $state == $value;
+        if( is_scalar( $state ) ){
+            $strict = boolval( reset( $args ) );
+            $currentState = $this->state[ $state ] ?? null;
+            return $strict ? $currentState === $value : $currentState == $value;
         }
+
 
         /**
-         * If the state comparer is an array then we will check
-         * for key value pairs as the state option and their values.
+         * If the state comparer is an array or object cast to an
+         * array then we will check for key value pairs as the state
+         * option and their values.
+         *
+         * For this case, the 2nd parameter will be used as strict
+         * comparison flag.
          */
-        if( is_array( $state ) ){
 
-            /**
-             * The 2nd parameter will be used as strict comparison flag.
-             */
-            $strict = $value;
+        $strict = $value;
 
 
-            /**
-             * Return false if any of the value fails.
-             * Returns true if all key-value pairs matches the state.
-             */
-            foreach ( $state as $key => $val ){
-                if( !$this->is( $key, $val, $strict ) ){
-                    return false;
-                }
+        /**
+         * Return false if any of the value fails.
+         * Returns true if all key-value pairs matches the state.
+         */
+        foreach ( (array) $state as $key => $val ) {
+            if (!$this->is($key, $val, $strict)) {
+                return false;
             }
-
-            return true;
         }
 
-        return false;
+        return true;
 
+    }
+
+
+    /**
+     * Get the full state.
+     *
+     * @return array
+     */
+    public function all(): array
+    {
+        return $this->state;
+    }
+
+
+    /**
+     * Increment the value of a step.
+     *
+     * @param string $state
+     * @param int|float $by
+     * @return float|int
+     */
+    public function incr(string $state, $by = 1)
+    {
+        return $this->state[ $state ] += $by;
+    }
+
+
+    /**
+     * Increment the value of a step.
+     *
+     * @param string $state
+     * @param int|float $by
+     * @return float|int
+     */
+    public function decr(string $state, $by = 1)
+    {
+        return $this->incr( - $by );
+    }
+
+
+    /**
+     * Append a string to a state value.
+     *
+     * @param string $state
+     * @param string $string
+     * @return float|int
+     */
+    public function append(string $state, string $string)
+    {
+        return $this->state[ $state ] .= $string;
+    }
+
+    /**
+     * Prepend a string to a state value.
+     *
+     * @param string $state
+     * @param string $string
+     * @return float|int
+     */
+    public function prepend(string $state, string $string)
+    {
+        return $this->state[ $state ] = $string . $this->state[ $state ];
     }
 
 

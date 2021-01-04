@@ -46,8 +46,10 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         }catch(\Throwable $th){
             $username = null;
         }
+
         $parser = new Parser();
-        $parser->setText($event->getMessage());
+        $rawEmail = $event->getMessage();
+        $parser->setText($rawEmail);
         $from = $parser->getAddresses('from');
         $to = $parser->getAddresses('to');
         $subject = $parser->getHeader('subject');
@@ -70,7 +72,8 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
             $username,
             $messageId,
             $inReplyTo,
-            $references
+            $references,
+            $rawEmail
         );
     }
 }
