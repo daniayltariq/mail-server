@@ -69,4 +69,57 @@ class MailHelper
         }
     }
 
+
+    /**
+     *
+     * Returns an array of each item containing an
+     * array of email address' components.
+     *
+     * Emails that have
+     * no corresponding name, the email name will
+     * be used.
+     *
+     * Array Shape:
+     *
+     *     [
+     *         [email, name],
+     *         [email, name],
+     *         ...
+     *     ]
+     *
+     * If Address only, then the shape will become like this:
+     *
+     *    [ email, email, email, ... ]
+     *
+     *
+     * Example 1: `name@example.com --> [ name@example.com, name ]`
+     *
+     * Example 2: `My Name <name@example.com> --> [ name@example.com, My Name ]`
+     *
+     * @param $headerStr
+     * @param bool $addressOnly Return the address only ignore name
+     * @param bool $single Return only a single array, not an array of array.
+     * @return array|string
+     */
+    public static function parseEmailsFromHeader($headerStr, $addressOnly = false, $single = false)
+    {
+        $result = [];
+        $items = explode( ',', $headerStr );
+        foreach ( $items as $item ){
+            $matches = [];
+            if( strpos( $item, '<' ) !== false ){
+                preg_match('/([^<.]*)<(.*@.*)>/', $item, $matches);
+                $result[] = $addressOnly ? $matches[2] : [ $matches[2], trim( $matches[1] ) ];
+            }else{
+                preg_match('/<?((.*)@.*)>?/', $item, $matches);
+                $result[] = $addressOnly ? $matches[1] : [ $matches[1], $matches[2] ];
+            }
+
+            if( $single ) break;
+
+        }
+
+        return $single ? reset( $result ) : $result;
+    }
+
 }

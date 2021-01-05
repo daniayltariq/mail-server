@@ -1,9 +1,9 @@
 <?php
 namespace PBMail;
 
-include 'vendor/autoload.php';
+use PHPMailer\PHPMailer\PHPMailer;
 
-use PHPMailer;
+include 'vendor/autoload.php';
 
 $mail = new PHPMailer();
 
@@ -11,6 +11,9 @@ $mail->isSMTP();
 $mail->Host = 'localhost';
 $mail->Port = 25;
 $mail->SMTPDebug = true;
+$mail->SMTPAuth = true;
+$mail->Username = 'sptutusukanta@gmail.com';
+$mail->Username = 'system32';
 
 $mail->setFrom('test@anbharat.com', 'ANBharat');
 $mail->addAddress('joe@example.net', 'Joe User');     // Add a recipient
@@ -18,6 +21,7 @@ $mail->addAddress('joe@example.net', 'Joe User');     // Add a recipient
 //$mail->addReplyTo('info@example.com', 'Information');
 //$mail->addCC('cc@example.com');
 //$mail->addBCC('bcc@example.com');
+//$mail->addBCC('another@example.com');
 
 $mail->Subject = 'Here is the subject';
 $mail->Body    = 'This is the HTML message body <b>in bold!</b><a href="http://www.veryurl.com">Link</a><table class="mt_text"><tr><td>55888</td></tr></table>';
@@ -29,3 +33,5 @@ if(!$mail->send()) {
 } else {
     echo 'Message has been sent';
 }
+
+echo $mail->getSentMIMEMessage();

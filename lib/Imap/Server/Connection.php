@@ -5,11 +5,19 @@ namespace PBMail\Imap\Server;
 
 
 use PBMail\Helpers\DbHelper;
+use PBMail\Helpers\MailHelper;
+use PhpMimeMailParser\Parser;
 use React\EventLoop\LoopInterface;
 use React\Socket\ConnectionInterface;
 use React\Stream\Stream;
 use React\Stream\WritableStreamInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use TheFox\Logic\AndGate;
+use TheFox\Logic\CriteriaTree;
+use TheFox\Logic\Gate;
+use TheFox\Logic\NotGate;
+use TheFox\Logic\Obj;
+use TheFox\Logic\OrGate;
 
 class Connection extends Stream implements ConnectionInterface
 {
@@ -29,6 +37,10 @@ class Connection extends Stream implements ConnectionInterface
     const CMD_CREATE        = 'create';
     const CMD_SUBSCRIBE     = 'subscribe'; // @NOTICE NOT_IMPLEMENTED
     const CMD_UNSUBSCRIBE   = 'unsubscribe'; // @NOTICE NOT_IMPLEMENTED
+    const CMD_LIST          = 'list';
+    const CMD_LSUB          = 'lsub';
+    const CMD_UID           = 'uid';
+    const CMD_SEARCH            = 'search';
 
 
     // Auth Methods =============================
@@ -47,12 +59,6 @@ class Connection extends Stream implements ConnectionInterface
     const STATE_APPEND_DATE     = 'appendDate';
     const STATE_APPEND_LITERAL  = 'appendLiteral';
     const STATE_APPEND_MSG      = 'appendMsg';
-
-
-    const CMD_LIST = 'list';
-    const CMD_LSUB = 'lsub';
-    // const CMD_APPEND = 'append';
-    const CMD_UID = 'uid';
 
 
     /**
@@ -142,8 +148,6 @@ class Connection extends Stream implements ConnectionInterface
     public function handleRawCommand(string $line): string
     {
 
-        // var_dump("CMD: $line\n");
-
         $args = $this->parseRawCommandString($line, 3);
 
         // Get Tag, and remove Tag from Arguments.
@@ -158,7 +162,6 @@ class Connection extends Stream implements ConnectionInterface
         // Get rest Arguments as String. Do not reuse $args here. Just let it as it is.
         /** @var string $restArgs */
         $restArgs = array_shift($args) ?? '';
-
 
 
         switch ( $commandCmp ){
@@ -316,6 +319,7 @@ class Connection extends Stream implements ConnectionInterface
             case static::CMD_LSUB:
 
                 $commandArgs = $this->parseRawCommandString($restArgs, 1);
+
                 if ( $this->isAuthenticated() ) {
                     if (isset($commandArgs[0]) && $commandArgs[0]) {
                         return $this->sendLsub($tag);
@@ -327,77 +331,22 @@ class Connection extends Stream implements ConnectionInterface
                 return $this->sendNo($commandCmp . ' failure', $tag);
 
 
+            case static::CMD_SEARCH:
 
-//            case static::CMD_APPEND:
-//
-//                $commandArgs = $this->parseRawCommandString($restArgs, 4);
-//
-////                $this->logger->debug(sprintf('client %d append', $this->id));
-////
-//                if ($this->isAuthenticated()) {
-//                    if (isset($commandArgs[0]) && $commandArgs[0] && isset($commandArgs[1]) && $commandArgs[1]) {
-//
-//                        $this->state->set(static::STATE_APPEND_FLAGS, []);
-//                        $this->state->set(static::STATE_APPEND_DATE, '');
-//                        $this->state->set(static::STATE_APPEND_LITERAL, 0);
-//                        $this->state->set(static::STATE_APPEND_MSG, '');
-//
-//
-//                        $flags = [];
-//                        $literal = 0;
-//
-//                        if (!isset($commandArgs[2]) && !isset($commandArgs[3])) {
-//                            // $this->logger->debug('client ' . $this->id . ' append: 2 not set, 3 not set');
-//                            $literal = $commandArgs[1];
-//
-//                        } elseif (isset($commandArgs[2]) && !isset($commandArgs[3])) {
-////                            $this->logger->debug('client ' . $this->id . ' append: 2 set, 3 not set, A');
-//
-//                            if ($commandArgs[1][0] == '(' && substr($commandArgs[1], -1) == ')') {
-////                                $this->logger->debug('client ' . $this->id . ' append: 2 set, 3 not set, B');
-//                                $flags = $this->getParenthesizedMessageList($commandArgs[1]);
-//
-//                            } else {
-////                                $this->logger->debug('client ' . $this->id . ' append: 2 set, 3 not set, C');
-//                                $this->state->set(static::STATE_APPEND_DATE, $commandArgs[1]);
-//
-//                            }
-//
-//                            $literal = $commandArgs[2];
-//
-//                        } elseif (isset($commandArgs[2]) && isset($commandArgs[3])) {
-////                            $this->logger->debug('client ' . $this->id . ' append: 2 set, 3 set');
-//
-//                            $flags = $this->getParenthesizedMessageList( $commandArgs[1] );
-//                            $this->state->set(static::STATE_APPEND_DATE, $commandArgs[2]);
-//                            $literal = $commandArgs[3];
-//                        }
-//
-//                        if ($flags) {
-//                            $flags = array_unique($flags);
-//                        }
-//                        $this->state->set(static::STATE_APPEND_FLAGS, $flags);
-//
-//                        if ($literal[0] == '{' && substr($literal, -1) == '}') {
-//                            $literal = (int) substr(substr($literal, 1), 0, -1);
-//                        } else {
-//                            return $this->sendBad('Arguments invalid.', $tag);
-//                        }
-//
-//                        $this->state->set(static::STATE_APPEND_LITERAL, $literal);
-//                        $this->state->set(static::STATE_APPEND_STEP, 1);
-//                        $this->state->set(static::STATE_APPEND_TAG, $tag);
-//                        $this->state->set(static::STATE_APPEND_FOLDER, $commandArgs[0]);
-//
-//                        return $this->sendAppend();
-//                    }
-//
-//                    return $this->sendBad('Arguments invalid.', $tag);
-//
-//                }
-//
-//                return $this->sendNo($commandCmp . ' failure', $tag);
+                if ( $this->isAuthenticated() ) {
 
+                    if ($restArgs ?? false) {
+                        if ($this->selectedFolder) {
+                            return $this->sendSearch($tag, $restArgs);
+                        }
+
+                        return $this->sendNo('No mailbox selected.', $tag);
+                    }
+
+                    return $this->sendBad('Arguments invalid.', $tag);
+                }
+
+                return $this->sendNo($commandCmp . ' failure', $tag);
 
 
             case static::CMD_UID:
@@ -657,11 +606,9 @@ class Connection extends Stream implements ConnectionInterface
      */
     public function sendNoop(string $tag): string
     {
-//        if ($this->selectedFolder) {
-//            $this->sendSelectedFolderInfos();
-//        }
-
-        // TODO: Implement NOOP.
+        if ($this->selectedFolder) {
+            $this->sendSelectedFolderInfos();
+        }
 
         return '';
 
@@ -888,64 +835,6 @@ class Connection extends Stream implements ConnectionInterface
 
     }
 
-
-//    /**
-//     * Sent APPEND.
-//     * @param string $data
-//     * @return string
-//     */
-//    public function sendAppend(string $data = ''): string
-//    {
-//
-//        $appendMsgLen = strlen( $this->state->get(static::STATE_APPEND_MSG));
-//
-//        if ( $this->state->is(static::STATE_APPEND_STEP, 1) ) {
-//            $this->state->incr( static::STATE_APPEND_STEP );
-//            return $this->sendData('+ Ready for literal data');
-//
-//        } elseif ( $this->state->is(static::STATE_APPEND_STEP, 2) ) {
-//            if ( $appendMsgLen < $this->state->get( static::STATE_APPEND_LITERAL ) ) {
-//                $appendMsgLen = strlen(
-//                    $this->state
-//                        ->append( static::STATE_APPEND_MSG, $data . static::DELIMITER)
-//                );
-//            }
-//
-//            if ($appendMsgLen >= $this->state->get( static::STATE_APPEND_LITERAL ) ) {
-//                $this->state->incr( static::STATE_APPEND_STEP );
-////                $this->logger->debug('client ' . $this->id . ' append len reached: ' . $appendMsgLen);
-//                $message = Message::fromString($this->getStatus('appendMsg'));
-//
-//                try {
-//                    $this->getServer()->addMail(
-//                        $message,
-//                        $this->getStatus('appendFolder'),
-//                        $this->getStatus('appendFlags'),
-//                        false
-//                    )
-//                    ;
-//
-//                    $tmp = sprintf('client %d append completed: %s', $this->id, $this->getStatus('appendStep'));
-//                    $this->logger->debug($tmp);
-//
-//                    return $this->sendOk('APPEND completed', $this->getStatus('appendTag'));
-//                } catch (Exception $e) {
-//                    $noMsg = 'Can not get folder: ' . $this->getStatus('appendFolder');
-//                    return $this->sendNo($noMsg, $this->getStatus('appendTag'), 'TRYCREATE');
-//                }
-//            } else {
-//                /** @var int $diff */
-//                $diff = $this->getStatus('appendLiteral') - $appendMsgLen;
-//
-//                $tmp = sprintf('client %d append left: %d (%d)', $this->id, $diff, $appendMsgLen);
-//                $this->logger->debug($tmp);
-//            }
-//        }
-//
-//        return '';
-//
-//    }
-
     public function sendUid(string $tag, string $argsStr): string
     {
 
@@ -960,14 +849,9 @@ class Connection extends Stream implements ConnectionInterface
         }
 
         if ($commandcmp == 'copy') {
-            $args = $this->parseRawCommandString($args, 2);
-            $seq = $args[0];
-            if (!isset($args[1])) {
-                return $this->sendBad('Arguments invalid.', $tag);
-            }
-            $folder = $args[1];
 
-            return $this->sendCopy($tag, $seq, $folder, true);
+            // @NOTICE NOT_IMPLEMENTED
+
         } elseif ($commandcmp == 'fetch') {
             $args = $this->parseRawCommandString($args, 2);
             $seq = $args[0];
@@ -978,19 +862,16 @@ class Connection extends Stream implements ConnectionInterface
 
             return $rv;
         } elseif ($commandcmp == 'store') {
-            $args = $this->parseRawCommandString($args, 3);
-            $seq = $args[0];
-            $name = $args[1];
-            $flagsStr = $args[2];
 
-            $rv = $this->sendStoreRaw($tag, $seq, $name, $flagsStr, true);
-            $rv .= $this->sendOk('UID STORE completed', $tag);
+            // @NOTICE NOT_IMPLEMENTED
 
-            return $rv;
         } elseif ($commandcmp == 'search') {
             $criteriaStr = $args;
 
-            $rv = $this->sendSearchRaw($criteriaStr, true);
+            try {
+                $rv = $this->sendSearchRaw($criteriaStr, true);
+            } catch (\Exception $e) { }
+
             $rv .= $this->sendOk('UID SEARCH completed', $tag);
 
             return $rv;
@@ -1121,18 +1002,18 @@ class Connection extends Stream implements ConnectionInterface
 
         // Process collected msgs.
         foreach ($msgSeqNums as $msgSeqNum) {
-            $msgId = $this->storage()->getMsgIdBySeq($msgSeqNum, $this->selectedFolder);
-            if (!$msgId) {
+            $mailId = $this->storage()->getMsgIdBySeq($msgSeqNum, $this->selectedFolder);
+            if (!$mailId) {
 //                $this->logger->error('Can not get ID for seq num ' . $msgSeqNum . ' from root storage.');
                 continue;
             }
 
-            $message = $this->storage()->getMailById($msgId);
-            if (!$message) {
+            $mail = $this->storage()->getMailById($mailId);
+            if (!$mail) {
                 continue;
             }
 
-            $flags = $this->storage()->getFlagsById($msgId);
+            $flags = $this->storage()->getFlagsById($mailId);
 
             $output = [];
             $outputHasFlag = false;
@@ -1144,15 +1025,15 @@ class Connection extends Stream implements ConnectionInterface
                     $peek = $item == 'body.peek';
                     $section = '';
 
-                    $msgStr = $message->getData();
+                    $msgStr = $mail->getData();
                     if (isset($val['header'])) {
                         $section = 'HEADER';
-                        $msgStr = implode( static::DELIMITER, $message->getHeaders() );
+                        $msgStr = implode( static::DELIMITER, $mail->getHeaders() );
                     } elseif (isset($val['header.fields'])) {
                         $section = 'HEADER';
                         $msgStr = '';
 
-                        $headers = $message->getHeaders();
+                        $headers = $mail->getHeaders();
 
                         $headerStrs = [];
 
@@ -1170,10 +1051,10 @@ class Connection extends Stream implements ConnectionInterface
                     #$output[] = 'BODY['.$section.'] {'.$msgStrLen.'}'.Headers::EOL.$msgStr.Headers::EOL;
                     $outputBody = 'BODY[' . $section . '] {' . $msgStrLen . '}' . static::DELIMITER . $msgStr;
                 } elseif ($item == 'rfc822.size') {
-                    $size = strlen($message->getData());
+                    $size = strlen($mail->getData());
                     $output[] = 'RFC822.SIZE ' . $size;
                 } elseif ($item == 'uid') {
-                    $output[] = 'UID ' . $msgId;
+                    $output[] = 'UID ' . $mailId;
                 }
             }
 
@@ -1184,12 +1065,10 @@ class Connection extends Stream implements ConnectionInterface
                 $output[] = $outputBody;
             }
 
-            var_dump( $output );
-
             $rv .= $this->sendData('* ' . $msgSeqNum . ' FETCH (' . join(' ', $output) . ')');
 
             unset( $flags[ Storage::FLAG_RECENT ]);
-            $this->storage()->setFlagsById($msgId, $flags);
+            $this->storage()->setFlagsById($mailId, $flags);
         }
 
         return $rv;
@@ -1279,9 +1158,6 @@ class Connection extends Stream implements ConnectionInterface
                     for ($msgSeqNum = 1; $msgSeqNum <= $count; $msgSeqNum++) {
                         $uid = $this->storage()->getMsgIdBySeq($msgSeqNum, $this->selectedFolder);
 
-                        // 0, 1, 'INBOX'
-                        // var_dump([ $uid, $msgSeqNum, $this->selectedFolder ]);
-
                         if ($uid >= $seqMin && $uid <= $seqMax || $seqAll) {
                             $nums[] = $msgSeqNum;
                         }
@@ -1352,11 +1228,11 @@ class Connection extends Stream implements ConnectionInterface
             $rv .= $this->sendOk('Predicted next UID', null, 'UIDNEXT ' . $nextId);
         }
         $availableFlags = [
-            Storage::FLAG_ANSWERED,
-            Storage::FLAG_FLAGGED,
-            Storage::FLAG_DELETED,
-            Storage::FLAG_SEEN,
-            Storage::FLAG_DRAFT,
+//            Storage::FLAG_ANSWERED,
+//            Storage::FLAG_FLAGGED,
+//            Storage::FLAG_DELETED,
+//            Storage::FLAG_SEEN,
+//            Storage::FLAG_DRAFT,
         ];
         $rv .= $this->sendData('* FLAGS (' . join(' ', $availableFlags) . ')');
 
@@ -1365,6 +1241,443 @@ class Connection extends Stream implements ConnectionInterface
 
         return $rv;
 
+    }
+
+
+    /**
+     * @param string $criteriaStr
+     * @param bool $isUid
+     * @return string
+     * @throws \Exception
+     */
+    public function sendSearchRaw(string $criteriaStr, bool $isUid = false): string
+    {
+        $criteria = $this->getParenthesizedMessageList($criteriaStr);
+        $criteria = $this->parseSearchKeys($criteria);
+
+        $tree = new CriteriaTree($criteria);
+        $tree->build();
+
+        if (!$tree->getRootGate()) {
+            return '';
+        }
+
+        $ids = [];
+        $msgSeqNums = $this->createSequenceSet('*');
+        foreach ($msgSeqNums as $msgSeqNum) {
+
+            // $this->logger->debug('client ' . $this->id . ' check msg: ' . $msgSeqNum);
+
+            $mail = $this->storage()->getMailBySeq($msgSeqNum, $this->selectedFolder);
+
+            if ($mail) {
+                /** @var Gate $rootGate */
+                $rootGate = clone $tree->getRootGate();
+
+                $uid = $this->storage()->getMsgIdBySeq($msgSeqNum, $this->selectedFolder);
+
+                $add = $this->parseSearchMessage($mail, $msgSeqNum, $uid, $isUid, $rootGate);
+                if ($add) {
+                    if ($isUid) {
+                        $ids[] = $uid;
+                    } else {
+                        // @NOTICE NOT_IMPLEMENTED
+                        $ids[] = $msgSeqNum;
+                    }
+                }
+            }
+        }
+
+        sort($ids);
+
+        $rv = '';
+        while ($ids) {
+            $sendIds = array_slice($ids, 0, 30);
+            $ids = array_slice($ids, 30);
+
+            $rv .= $this->sendData('* SEARCH ' . join(' ', $sendIds) . '');
+        }
+        return $rv;
+    }
+
+
+    /**
+     * @param array $list
+     * @param int $posOffset
+     * @param int $maxItems
+     * @param bool $addAnd
+     * @param int $level
+     * @return array
+     */
+    public function parseSearchKeys(array $list, int &$posOffset = 0, int $maxItems = 0, bool $addAnd = true, int $level = 0): array
+    {
+        $len = count($list);
+        $rv = [];
+
+        if ($len <= 1) {
+            return $list;
+        }
+
+        $itemsC = 0;
+        $pos = 0;
+        for ($pos = 0; $pos < $len; $pos++) {
+            $orgpos = $pos;
+            $item = $list[$pos];
+            $itemWithArgs = '';
+
+            $and = true;
+            $offset = 0;
+
+            if (is_array($item)) {
+                $subPosOffset = 0;
+                $itemWithArgs = [$this->parseSearchKeys($item, $subPosOffset, 0, true, $level + 1)];
+            } else {
+                $itemcmp = strtolower($item);
+                if ($itemcmp == 'all'
+                    || $itemcmp == 'answered'
+                    || $itemcmp == 'deleted'
+                    || $itemcmp == 'draft'
+                    || $itemcmp == 'flagged'
+                    || $itemcmp == 'new'
+                    || $itemcmp == 'old'
+                    || $itemcmp == 'recent'
+                    || $itemcmp == 'seen'
+                    || $itemcmp == 'unanswered'
+                    || $itemcmp == 'undeleted'
+                    || $itemcmp == 'undraft'
+                    || $itemcmp == 'unflagged'
+                    || $itemcmp == 'unseen'
+                ) {
+                    $itemWithArgs = $item;
+                } elseif ($itemcmp == 'bcc'
+                    || $itemcmp == 'before'
+                    || $itemcmp == 'body'
+                    || $itemcmp == 'cc'
+                    || $itemcmp == 'from'
+                    || $itemcmp == 'keyword'
+                    || $itemcmp == 'larger'
+                    || $itemcmp == 'on'
+                    || $itemcmp == 'sentbefore'
+                    || $itemcmp == 'senton'
+                    || $itemcmp == 'sentsince'
+                    || $itemcmp == 'since'
+                    || $itemcmp == 'smaller'
+                    || $itemcmp == 'subject'
+                    || $itemcmp == 'text'
+                    || $itemcmp == 'to'
+                    || $itemcmp == 'uid'
+                    || $itemcmp == 'unkeyword'
+                ) {
+                    $itemWithArgs = $item . ' ' . $list[$pos + 1];
+                    $offset++;
+                } elseif ($itemcmp == 'header') {
+                    $itemWithArgs = $item . ' ' . $list[$pos + 1] . ' ' . $list[$pos + 2];
+                    $offset += 2;
+                } elseif ($itemcmp == 'or') {
+                    $rest = array_slice($list, $pos + 1);
+                    $subPosOffset = 0;
+                    $sublist = $this->parseSearchKeys($rest, $subPosOffset, 2, false, $level + 1);
+                    $itemWithArgs = [[$sublist[0], 'OR', $sublist[1]]];
+
+                    $offset += $subPosOffset;
+                } elseif ($itemcmp == 'and') {
+                    $and = false;
+                } elseif ($itemcmp == 'not') {
+                    $rest = array_slice($list, $pos + 1);
+                    $subPosOffset = 0;
+                    $sublist = $this->parseSearchKeys($rest, $subPosOffset, 1, false, $level + 1);
+                    $itemWithArgs = [$item, $sublist[0]];
+                    $offset += $subPosOffset;
+                } elseif (is_numeric($itemcmp)) {
+                    $itemWithArgs = $item;
+                }
+            }
+
+            if ($pos <= 0) {
+                $and = false;
+            }
+
+            if ($addAnd && $and) {
+                $rv[] = 'AND';
+                //$and = false;
+            }
+            if ($itemWithArgs) {
+                if (is_array($itemWithArgs)) {
+                    $rv = array_merge($rv, $itemWithArgs);
+                } else {
+                    $rv[] = $itemWithArgs;
+                }
+            }
+
+            $pos += $offset;
+            $itemsC++;
+            if ($maxItems && $itemsC >= $maxItems) {
+                break;
+            }
+        }
+
+        $posOffset = $pos + 1;
+
+        return $rv;
+    }
+
+
+    /**
+     * @param Parser $mail
+     * @param int $messageSeqNum
+     * @param int $messageUid
+     * @param bool $isUid
+     * @param $gate
+     * @param int $level
+     * @return bool
+     * @throws \Exception
+     */
+    public function parseSearchMessage(Parser $mail, int $messageSeqNum, int $messageUid, bool $isUid, $gate, int $level = 1): bool
+    {
+
+        /** @var Obj[]|int[]|string[] $subGates */
+        $subGates = [];
+
+        if ($gate instanceof Gate) {
+            if ($gate->getObj1()) {
+                $subGates[] = $gate->getObj1();
+            }
+            if ($gate->getObj2()) {
+                $subGates[] = $gate->getObj2();
+            }
+        } elseif ($gate instanceof Obj) {
+            $val = $this->searchMessageCondition($mail, $messageSeqNum, $messageUid, $gate->getValue());
+            $gate->setValue($val);
+        }
+
+        foreach ($subGates as $subGate) {
+            if ($subGate instanceof AndGate) {
+                $this->parseSearchMessage($mail, $messageSeqNum, $messageUid, $isUid, $subGate, $level + 1);
+            } elseif ($subGate instanceof OrGate) {
+                $this->parseSearchMessage($mail, $messageSeqNum, $messageUid, $isUid, $subGate, $level + 1);
+            } elseif ($subGate instanceof NotGate) {
+                $this->parseSearchMessage($mail, $messageSeqNum, $messageUid, $isUid, $subGate, $level + 1);
+            } elseif ($subGate instanceof Obj) {
+                $val = $this->searchMessageCondition($mail, $messageSeqNum, $messageUid, $subGate->getValue());
+                $subGate->setValue($val);
+            }
+        }
+
+        return $gate->getBool();
+
+    }
+
+
+    /**
+     *
+     * Checks a message by a given condition.
+     *
+     * @param Parser $mail
+     * @param int $messageSeqNum
+     * @param int $messageUid
+     * @param string $searchKey
+     * @return bool
+     * @throws \Exception
+     */
+    public function searchMessageCondition(Parser $mail, int $messageSeqNum, int $messageUid, string $searchKey): bool
+    {
+
+        $items = preg_split('/ /', $searchKey, 3);
+        $itemcmp = strtolower($items[0]);
+
+        $flags = $this->storage()->getFlagsById($messageUid);
+
+        $rv = false;
+        switch ($itemcmp) {
+            case 'all':
+                return true;
+
+            case 'answered':
+                return in_array(Storage::FLAG_ANSWERED, $flags);
+
+            case 'bcc':
+                $searchStr = strtolower($items[1]);
+                $bccAddressList = MailHelper::parseEmailsFromHeader( $mail->getHeader('bcc'), true );
+                if (count($bccAddressList)) {
+                    foreach ($bccAddressList as $bcc) {
+                        return strpos( strtolower( $bcc ), $searchStr) !== false;
+                    }
+                }
+                break;
+
+            case 'before':
+                // @NOTICE NOT_IMPLEMENTED
+                break;
+
+            case 'body':
+            case 'text':
+                $searchStr = strtolower($items[1]);
+                return strpos( strtolower( $mail->getMessageBody() ), $searchStr) !== false;
+
+            case 'cc':
+                $searchStr = strtolower($items[1]);
+                $ccAddressList = MailHelper::parseEmailsFromHeader( $mail->getHeader('cc'), true );
+                if (count($ccAddressList)) {
+                    foreach ($ccAddressList as $from) {
+                        return strpos(strtolower($from), $searchStr) !== false;
+                    }
+                }
+                break;
+
+            case 'deleted':
+                return in_array(Storage::FLAG_DELETED, $flags);
+
+            case 'draft':
+                return in_array(Storage::FLAG_DRAFT, $flags);
+
+            case 'flagged':
+                return in_array(Storage::FLAG_FLAGGED, $flags);
+
+            case 'from':
+                $searchStr = strtolower($items[1]);
+                $fromAddressList = MailHelper::parseEmailsFromHeader( $mail->getHeader('from'), true );
+                if (count($fromAddressList)) {
+                    foreach ($fromAddressList as $from) {
+                        return strpos(strtolower($from), $searchStr) !== false;
+                    }
+                }
+                break;
+
+            case 'header':
+                $searchStr = strtolower($items[2]);
+                $fieldName = $items[1];
+                $header = $mail->getHeaders()->get($fieldName);
+                $val = $header->getFieldValue();
+                return strpos(strtolower($val), $searchStr) !== false;
+
+            case 'keyword':
+                // @NOTICE NOT_IMPLEMENTED
+                break;
+
+            case 'larger':
+                return strlen( $mail->getMessageBody() ) > (int) $items[1];
+
+            case 'new':
+                return in_array(Storage::FLAG_RECENT, $flags) && !in_array(Storage::FLAG_SEEN, $flags);
+
+            case 'old':
+                return !in_array(Storage::FLAG_RECENT, $flags);
+
+            case 'on':
+                $checkDate = new \DateTime($items[1]);
+                $dateStr = $mail->getHeader('date');
+                if( !$dateStr ) break;
+
+                $messageDate = new \DateTime( $dateStr );
+                return $messageDate->format('Y-m-d') == $checkDate->format('Y-m-d');
+
+            case 'recent':
+                return in_array(Storage::FLAG_RECENT, $flags);
+
+            case 'seen':
+                return in_array(Storage::FLAG_SEEN, $flags);
+
+            case 'sentbefore':
+
+                $checkDate = new \DateTime( $items[1] );
+                $dateStr = $mail->getHeader('date');
+                if( !$dateStr ) break;
+
+                $messageDate = new \DateTime( $dateStr );
+                return $messageDate < $checkDate;
+
+            case 'senton':
+                $checkDate = new \DateTime( $items[1] );
+                $dateStr = $mail->getHeader('date');
+                if( !$dateStr ) break;
+
+                $messageDate = new \DateTime( $dateStr );
+                return $messageDate == $checkDate;
+
+            case 'sentsince':
+                $checkDate = new \DateTime( $items[1] );
+                $dateStr = $mail->getHeader('date');
+                if( !$dateStr ) break;
+
+                $messageDate = new \DateTime( $dateStr );
+                return $messageDate >= $checkDate;
+
+            case 'since':
+                // @NOTICE NOT_IMPLEMENTED
+                break;
+
+            case 'smaller':
+                return strlen($mail->getMessageBody()) < (int)$items[1];
+
+            case 'subject':
+                if (isset($items[2])) {
+                    $items[1] .= ' ' . $items[2];
+                    unset($items[2]);
+                }
+                $searchStr = strtolower($items[1]);
+                return strpos(strtolower( $mail->getHeader('subject') ), $searchStr) !== false;
+
+            case 'to':
+                $searchStr = strtolower($items[1]);
+                $toAddressList = MailHelper::parseEmailsFromHeader( $mail->getHeader('to'), true );
+                if (count($toAddressList)) {
+                    foreach ($toAddressList as $to) {
+                        return strpos(strtolower($to->getEmail()), $searchStr) !== false;
+                    }
+                }
+                break;
+
+            case 'uid':
+                $searchId = (int) $items[1];
+                return $searchId == $messageUid;
+
+            case 'unanswered':
+                return !in_array(Storage::FLAG_ANSWERED, $flags);
+
+            case 'undeleted':
+                return !in_array(Storage::FLAG_DELETED, $flags);
+
+            case 'undraft':
+                return !in_array(Storage::FLAG_DRAFT, $flags);
+
+            case 'unflagged':
+                return !in_array(Storage::FLAG_FLAGGED, $flags);
+
+            case 'unkeyword':
+                // @NOTICE NOT_IMPLEMENTED
+                break;
+
+            case 'unseen':
+                return !in_array(Storage::FLAG_SEEN, $flags);
+
+            default:
+                if (is_numeric($itemcmp)) {
+                    $searchId = (int) $itemcmp;
+                    return $searchId == $messageSeqNum;
+                }
+        }
+
+        return false;
+
+    }
+
+
+    /**
+     * @param string $tag
+     * @param string $criteriaStr
+     * @return string
+     */
+    public function sendSearch(string $tag, string $criteriaStr): string
+    {
+        $rv = '';
+
+        try {
+            $rv .= $this->sendSearchRaw($criteriaStr, false);
+        } catch (\Exception $e) {}
+
+        $rv .= $this->sendOk('SEARCH completed', $tag);
+
+        return $rv;
     }
 
 }

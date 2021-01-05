@@ -2,7 +2,6 @@
 
 namespace PBMail\Helpers;
 
-
 class DbHelper
 {
     // $instance will hold the instance of DbHelper (Singleton)
@@ -10,6 +9,8 @@ class DbHelper
 
     // local variables
     protected $config;
+
+    /** @var \PDO|null */
     protected $connection;
 
     /**
@@ -34,11 +35,24 @@ class DbHelper
     }
 
     /**
+     * Get the underlying connection.
      * @return \PDO
+     * @throws \Exception
      */
     public function connection(): \PDO
     {
+        if( !isset( $this->connection ) ) throw new \Exception('Database not connected.');
         return $this->connection;
+    }
+
+
+    /**
+     * Returns if the database is already connected.
+     * @return bool
+     */
+    public function isConnected(): bool
+    {
+        return (bool) $this->connection;
     }
 
     /**
@@ -56,7 +70,7 @@ class DbHelper
      * close connection
      */
     public function disconnect(){
-        $this->connection == null;
+        unset( $this->connection );
     }
 
     /**
@@ -433,6 +447,54 @@ class DbHelper
                 return false;
             }
             return $user;
+        }catch (\Exception $e){
+            $this->disconnect();
+            return false;
+        }
+    }
+
+    /**
+     * Get the domains that the user has created.
+     *
+     * @param $userId
+     * @return array|false
+     */
+    public function getDomainsCreatedByUser( $userId ){
+        try{
+
+            $alreadyConnected = $this->isConnected();
+
+            // Do not re-connect, if DB is already connected.
+            if( !$alreadyConnected ){
+                $this->connect();
+            }
+
+            // Find user
+            /** @var \PDOStatement $preparedStatement */
+            $preparedStatement = $this->connection->prepare(
+                sprintf(
+                    "SELECT `name` FROM `%s` WHERE created_by_id=:userId",
+                    $this->config['domains_table']
+                )
+            );
+
+            $preparedStatement->execute([
+                'userId' => $userId
+            ]);
+
+            $domains = $preparedStatement->fetchAll( \PDO::FETCH_COLUMN );
+
+            // Disconnect only if DB was already connected earlier.
+            if( !$alreadyConnected ){
+                $this->disconnect();
+            }
+
+            if(!$domains){
+                return [];
+            }
+
+            return $domains;
+
         }catch (\Exception $e){
             $this->disconnect();
             return false;

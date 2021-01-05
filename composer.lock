@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "beb6c57d9085de62731740f32fbbc122",
+    "content-hash": "8dd6dd55efb24d974d14bbc302239628",
     "packages": [
         {
             "name": "evenement/evenement",
@@ -2019,6 +2019,69 @@
             "time": "2020-07-14T12:35:20+00:00"
         },
         {
+            "name": "thefox/logic",
+            "version": "v1.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/TheFox/logic.git",
+                "reference": "f48ec9331226303672a201a8cebe334034f79774"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/TheFox/logic/zipball/f48ec9331226303672a201a8cebe334034f79774",
+                "reference": "f48ec9331226303672a201a8cebe334034f79774",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^7.0"
+            },
+            "require-dev": {
+                "phpstan/phpstan": "^0.7",
+                "phpunit/phpunit": "^6.2"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "1.x.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-0": {
+                    "TheFox": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "GPL-3.0"
+            ],
+            "authors": [
+                {
+                    "name": "Christian Mayer",
+                    "email": "christian@fox21.at",
+                    "homepage": "https://fox21.at"
+                }
+            ],
+            "description": "Logic Gates and Criteria Tree",
+            "homepage": "https://fox21.at",
+            "keywords": [
+                "Not",
+                "and",
+                "andgate",
+                "criteriatree",
+                "gate",
+                "logic",
+                "notgate",
+                "or",
+                "orgate",
+                "tree"
+            ],
+            "support": {
+                "issues": "https://github.com/TheFox/logic/issues",
+                "source": "https://github.com/TheFox/logic/tree/v1.0.0"
+            },
+            "time": "2017-06-14T19:46:06+00:00"
+        },
+        {
             "name": "vlucas/phpdotenv",
             "version": "v5.1.0",
             "source": {
@@ -2103,7 +2166,9 @@
     },
     "prefer-stable": false,
     "prefer-lowest": false,
-    "platform": [],
+    "platform": {
+        "ext-pdo": "*"
+    },
     "platform-dev": [],
-    "plugin-api-version": "1.1.0"
+    "plugin-api-version": "2.0.0"
 }

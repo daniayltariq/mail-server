@@ -20,6 +20,7 @@ class Storage
     // Supported Pre-set folders ======================
     const FOLDER_INBOX = 'INBOX';
     const FOLDER_SENT = 'Sent';
+    const FOLDER_ALL    = 'ALL';
 
     // maildir and IMAP flags, using IMAP names, where possible to be able to distinguish between IMAP
     // system flags and other flags
@@ -31,7 +32,6 @@ class Storage
     const FLAG_DELETED  = '\Deleted';
     const FLAG_DRAFT    = '\Draft';
     const FLAG_RECENT   = '\Recent';
-
 
 
     public $folders = [ self::FOLDER_INBOX, self::FOLDER_SENT ];
@@ -65,6 +65,97 @@ class Storage
 
 
     /**
+     * @param string $folder
+     * @param string $select
+     * @param string $where
+     * @param string $extra
+     * @return false|\PDOStatement
+     * @throws \Exception
+     */
+    public function prepareSQL(string $folder = self::FOLDER_INBOX, $select = '*', $where = '', $extra = ''){
+
+        /**
+         *
+         * If domain id is present, means it is a receiving email. If its
+         * empty, then its sending email.
+         *
+         * But, as the email that are sent is not connected via any foreign
+         * key, we must use like query for the domains on `email_from` column.
+         *
+         * For Received emails, no such check is required as the connected
+         * domain tells the same story.
+         *
+         */
+
+        $sql = "SELECT $select";
+
+        $domains = $this->db()->getDomainsCreatedByUser( $this->userId );
+        if( empty( $domains ) ) return null;
+
+
+        if( in_array( $folder, $this->folders ) ){
+            $field = $folder === static::FOLDER_INBOX ? 'email_to' : 'email_from';
+            $likes = implode(' OR ', array_map(fn($domain) => "`$field` LIKE '%@$domain'", $domains) );
+        }else if( $folder === static::FOLDER_ALL ){
+            $likes = implode(' OR ', array_map(fn($domain) => "`email_from` LIKE '%@$domain' OR `email_to` LIKE '%@$domain'", $domains) );
+        }
+
+        $sql .= "
+                FROM `$this->emails_table` 
+                WHERE EXISTS (
+                    SELECT * FROM `$this->domains_table`
+                    WHERE `$this->domains_table`.`id` = `$this->emails_table`.`domain_id`
+                ) AND ( $likes )
+            ";
+
+//        if( $folder === static::FOLDER_INBOX ){
+//
+//            $sql .= "
+//                FROM `$this->emails_table`
+//                WHERE EXISTS(
+//                    SELECT * FROM `$this->domains_table`
+//                    WHERE `$this->domains_table`.`id` = `$this->emails_table`.`domain_id`
+//                    AND EXISTS(
+//                        SELECT * FROM `$this->users_table`
+//                        WHERE `$this->users_table`.`id` = :userId
+//                        AND `$this->domains_table`.`created_by_id` = `$this->users_table`.`id`
+//                    )
+//                )
+//            ";
+//
+//        } else {
+//
+//            $domains = $this->db()->getDomainsCreatedByUser( $this->userId );
+//            if( empty( $domains ) ) return null;
+//
+//            $likes = implode(
+//                ' OR ',
+//                array_map(fn($domain) => "`email` LIKE '%@$domain'", $domains)
+//            );
+//
+//            $sql .= "
+//                FROM `$this->emails_table`
+//                WHERE EXISTS (
+//                    SELECT * FROM `$this->domains_table`
+//                    WHERE `$this->domains_table`.`id` = `$this->emails_table`.`domain_id`
+//                ) AND ( $likes )
+//            ";
+//
+//        }
+
+        if( $where ){
+            $sql .= " AND ($where)";
+        }
+
+        if( $extra ){
+            $sql .= " $extra";
+        }
+
+        return $this->db()->connection()->prepare( $sql );
+    }
+
+
+    /**
      * Check if a folder exists.
      *
      * @param string $folder
@@ -93,33 +184,31 @@ class Storage
      * @param string $selectedFolder
      * @return int
      */
-    public function getMsgIdBySeq(int $msgSeqNum, string $selectedFolder): int
+    public function getMsgIdBySeq(int $msgSeqNum, $selectedFolder = self::FOLDER_ALL): int
     {
+
         try{
 
             $this->db()->connect();
 
-            $stmt = $this->db()->connection()->prepare("
-                SELECT id FROM `$this->emails_table`
-                WHERE EXISTS(
-                    SELECT * FROM `$this->domains_table`
-                    WHERE `$this->domains_table`.`id` = `$this->emails_table`.`domain_id`
-                    AND EXISTS(
-                        SELECT * FROM `$this->users_table`
-                        WHERE `$this->users_table`.`id` = ?
-                    )
-                )
-                LIMIT ". ($msgSeqNum - 1) .", 1
-            ");
+            $stmt = $this->prepareSQL(
+                $selectedFolder,
+                'id',
+                null,
+                "LIMIT ". ($msgSeqNum - 1) .", 1"
+            );
 
-            $stmt->execute([ $this->userId ]);
-            $count = intval( $stmt->fetchColumn() );
+            $stmt->execute([
+                'userId' => $this->userId
+            ]);
 
+            $id = intval( $stmt->fetchColumn() );
             $this->db()->disconnect();
 
-            return $count;
+            return $id;
 
         }catch (\Throwable $e){
+            $this->db()->disconnect();
             return 0;
         }
     }
@@ -137,26 +226,21 @@ class Storage
 
             $this->db()->connect();
 
-            $stmt = $this->db()->connection()->prepare("
-                SELECT COUNT(*) FROM `$this->emails_table`
-                WHERE EXISTS(
-                    SELECT * FROM `$this->domains_table`
-                    WHERE `$this->domains_table`.`id` = `$this->emails_table`.`domain_id`
-                    AND EXISTS(
-                        SELECT * FROM `$this->users_table`
-                        WHERE `$this->users_table`.`id` = ?
-                    )
-                )
-            ");
+            $stmt = $this->prepareSQL(
+                $selectedFolder,
+                'COUNT(*)',
+            );
 
-            $stmt->execute([ $this->userId ]);
+            $stmt->execute([
+                'userId' => $this->userId
+            ]);
             $count = intval( $stmt->fetchColumn() );
 
             $this->db()->disconnect();
-
             return $count;
 
         }catch (\Throwable $e){
+            $this->db()->disconnect();
             return 0;
         }
 
@@ -177,31 +261,25 @@ class Storage
      * @param int $mailId
      * @return Parser
      */
-    public function getMailById(int $mailId)
+    public function getMailById(int $mailId): ?Parser
     {
 
         try{
 
             $this->db()->connect();
 
-            $stmt = $this->db()->connection()->prepare("
-                SELECT `raw_email` FROM `$this->emails_table`
-                WHERE `id` = ?
-                AND EXISTS(
-                    SELECT * FROM `$this->domains_table`
-                    WHERE `$this->domains_table`.`id` = `$this->emails_table`.`domain_id`
-                    AND EXISTS(
-                        SELECT * FROM `$this->users_table`
-                        WHERE `$this->users_table`.`id` = ?
-                    )
-                )
-                LIMIT 1
-            ");
+            $stmt = $this->prepareSQL(
+                static::FOLDER_ALL,
+                'raw_email',
+                '`id` = :mailId',
+                'LIMIT 1'
+            );
+            $stmt->execute([ 'mailId' => $mailId ]);
 
-            $stmt->execute([ $mailId, $this->userId ]);
+
             $rawEmail = $stmt->fetchColumn();
 
-            if ( !$rawEmail ) return false;
+            if ( !$rawEmail ) throw new \Exception("Mail #u-$mailId not found.");
             $this->db()->disconnect();
 
             $mail = new \PhpMimeMailParser\Parser();
@@ -209,7 +287,11 @@ class Storage
 
             return $mail;
 
-        }catch (\Throwable $e){}
+        }catch (\Throwable $e){
+            $this->db()->disconnect();
+            return null;
+        }
+
     }
 
     public function getFlagsById(int $msgId): array
@@ -231,6 +313,37 @@ class Storage
     public function getFlagsBySeq(int $msgSeqNum, string $selectedFolder)
     {
         return [ static::FLAG_RECENT ];
+    }
+
+    public function getMailBySeq(int $msgSeqNum, string $selectedFolder)
+    {
+
+        try{
+
+            $this->db()->connect();
+
+            $stmt = $this->prepareSQL(
+                $selectedFolder,
+                'raw_email',
+                null,
+                "LIMIT ". ($msgSeqNum - 1) .", 1"
+            );
+
+            $stmt->execute();
+            $rawEmail = $stmt->fetchColumn();
+
+            if ( !$rawEmail ) return false;
+            $this->db()->disconnect();
+
+            $mail = new \PhpMimeMailParser\Parser();
+            $mail->setText( $rawEmail );
+
+            return $mail;
+
+        } catch (\Throwable $e){
+            $this->db()->disconnect();
+            return null;
+        }
     }
 
 
