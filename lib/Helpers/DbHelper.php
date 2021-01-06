@@ -611,8 +611,6 @@ class DbHelper
 
                 $stmt->execute([ 'userid' => $userId ]);
 
-                // TODO: Accessible email-domains must be checked if they are configured. (WORKING ON)
-
                 $probableEmails = $stmt->fetchAll(\PDO::FETCH_COLUMN);
                 if( !empty( $probableEmails ) ){
 
