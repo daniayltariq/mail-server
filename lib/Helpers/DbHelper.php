@@ -2,7 +2,6 @@
 
 namespace PBMail\Helpers;
 
-
 class DbHelper
 {
     // $instance will hold the instance of DbHelper (Singleton)
@@ -10,6 +9,8 @@ class DbHelper
 
     // local variables
     protected $config;
+
+    /** @var \PDO|null */
     protected $connection;
 
     /**
@@ -34,6 +35,27 @@ class DbHelper
     }
 
     /**
+     * Get the underlying connection.
+     * @return \PDO
+     * @throws \Exception
+     */
+    public function connection(): \PDO
+    {
+        if( !isset( $this->connection ) ) throw new \Exception('Database not connected.');
+        return $this->connection;
+    }
+
+
+    /**
+     * Returns if the database is already connected.
+     * @return bool
+     */
+    public function isConnected(): bool
+    {
+        return (bool) $this->connection;
+    }
+
+    /**
      * connect to db.
      */
     public function connect(){
@@ -48,7 +70,7 @@ class DbHelper
      * close connection
      */
     public function disconnect(){
-        $this->connection == null;
+        unset( $this->connection );
     }
 
     /**
@@ -77,9 +99,10 @@ class DbHelper
      * @param $messageId
      * @param $inReplyTo
      * @param $references
+     * @param string $rawEmail
      * @return false|string
      */
-    public function storeEmail($from, $to, $subject, $body, $code, $messageId, $inReplyTo, $references){
+    public function storeEmail($from, $to, $subject, $body, $code, $messageId, $inReplyTo, $references, $rawEmail = ''){
         // Users are associated with domains, and all emails are associated with domain.
         // Therefore, we need to find out the related domain for the incoming email.
         // If domain is not found, then this is outgoing email. set domain id to null.
@@ -91,9 +114,12 @@ class DbHelper
         try{
             // Save email to emails table
             $preparedStatement = $this->connection->prepare(
-                sprintf(
-                    "INSERT INTO %s (email_from, email_to, subject, body, code, domain_id, message_id, in_reply_to, reference, created_at, updated_at)
-                    VALUES (:from, :to, :subject, :body, :code, :domain, :messageId, :inReplyTo, :reference, :created, :updated)",
+                sprintf("
+                    INSERT INTO %s (
+                        email_from, email_to, subject, body, raw_email, code, domain_id,
+                        message_id, in_reply_to, reference, created_at, updated_at
+                    )VALUES (:from, :to, :subject, :body, :rawEmail, :code, :domain, :messageId, :inReplyTo, :reference, :created, :updated)
+                ",
                     $this->config['emails_table']
                 )
             );
@@ -102,6 +128,7 @@ class DbHelper
                 'to' => strtolower($to),
                 'subject' => $subject,
                 'body' => $body,
+                'rawEmail' => $rawEmail,
                 'code' => $code,
                 'domain' => $domain,
                 'messageId' => $messageId,
@@ -149,6 +176,39 @@ class DbHelper
                 return false;
             }
             return $userPassword['password'];
+        }catch (\Throwable $th){
+            return false;
+        }
+    }
+
+
+    /**
+     * Find user by its username.
+     * $username is 'email'
+     *
+     * @param $username
+     * @param string $fields
+     * @return array|false
+     */
+    public function getUserForUsername($username, $fields = '*'){
+        try{
+
+            return $this->autoConnect(function () use ($username, $fields){
+                // Get user password
+                $preparedStatement = $this->connection->prepare(
+                    sprintf(
+                        "SELECT $fields FROM %s WHERE email=:username",
+                        $this->config['users_table']
+                    )
+                );
+                $preparedStatement->execute([
+                    'username' => strtolower($username)
+                ]);
+
+                return $preparedStatement->fetch();
+
+            });
+
         }catch (\Throwable $th){
             return false;
         }
@@ -396,6 +456,218 @@ class DbHelper
             return false;
         }
     }
+
+
+    /**
+     * Auto-Connect to database before doing operation &
+     * disconnect after completion.
+     *
+     * Returns the result of the operation.
+     *
+     * @param callable $operation The requested operation.
+     * @param mixed ...$args Any arguments passed will be passed on to the operation.
+     * @return mixed
+     */
+    public function autoConnect(callable $operation, ...$args){
+
+        $alreadyConnected = $this->isConnected();
+
+        // Do not re-connect, if DB is already connected.
+        if( !$alreadyConnected ){
+            $this->connect();
+        }
+
+        // Run the operation as requested & store the result to return.
+        $result = $operation(...$args);
+
+        // Disconnect only if DB was already connected earlier.
+        if( !$alreadyConnected ){
+            $this->disconnect();
+        }
+
+        return $result;
+
+    }
+
+    /**
+     * Get the domains that the user has created.
+     *
+     * @param $userId
+     * @param bool $includeNotConfigured Include domains that are not configured yet.
+     * @return array|null
+     */
+    public function getDomainsCreatedByUser($userId, $includeNotConfigured = false ): ?array
+    {
+
+        try{
+
+            $domains = $this->autoConnect(function() use ( $userId, $includeNotConfigured ) {
+
+                // Find user
+                /** @var \PDOStatement $preparedStatement */
+                $preparedStatement = $this->connection->prepare(
+                    sprintf(
+                        "SELECT `name` FROM `%s` WHERE created_by_id=:userId" . ($includeNotConfigured ? '' : ' AND `is_configured`'),
+                        $this->config['domains_table']
+                    )
+                );
+
+                $preparedStatement->execute([
+                    'userId' => $userId
+                ]);
+
+                return $preparedStatement->fetchAll( \PDO::FETCH_COLUMN );
+
+            });
+
+            if(!empty( $domains )){
+                return $domains;
+            }
+
+        }catch (\Exception $e){}
+
+        return null;
+
+    }
+
+
+    /**
+     * Get the accessible domains and/or emails of a user.
+     * Result may contain both domains & emails or one of
+     * them or also each of them can be empty.
+     *
+     * Returning Array Shape:
+     *
+     *     [
+     *         'domains' => [
+     *              'domain1.com',
+     *              'domain2.com',
+     *              ...
+     *          ],
+     *          'emails' => [
+     *              'email@domain1.com',
+     *              'email@domain2.com',
+     *              ...
+     *          ]
+     *     ]
+     *
+     * @param $userId
+     * @param bool $includeNotConfigured Include domains that are not configured yet.
+     * @return array
+     */
+    public function getAccessibleDomainsAndEmails( $userId, $includeNotConfigured = false ): array
+    {
+
+        return $this->autoConnect(function() use ( $userId, $includeNotConfigured ){
+
+            /**
+             * Currently either 'domains' or 'emails' will be filled
+             * but, at a later stage, if the application gets more
+             * complex, it may have both.
+             */
+
+            $accessible = [
+                'domains'   => [],
+                'emails'    => [],
+            ];
+
+            $stmt = $this->connection->prepare(
+                sprintf(
+                    "SELECT `id`, `created_by_id` FROM `%s` WHERE id=:userId LIMIT 1",
+                    $this->config['users_table']
+                )
+            );
+
+            $stmt->execute(['userId' => $userId]);
+            $user = $stmt->fetch( \PDO::FETCH_ASSOC );
+
+            /**
+             * If the user doesn't exists, we'll return from here.
+             */
+            if( !$user ){
+                return $accessible;
+            }
+
+            /**
+             * If the user is an owner, we'll send associated domains.
+             * Otherwise, we'll look for associated emails.
+             */
+
+            if( empty( $user['created_by_id'] ) ){
+                $accessible['domains'] = $this->getDomainsCreatedByUser( $userId, $includeNotConfigured ) ?? [];
+
+            }else{
+
+                /**
+                 * LIMIT is purposefully not used as the relationship can be
+                 * one-to-many, so there could be multiple associated emails.
+                 */
+                $stmt = $this->connection->prepare(
+                    sprintf(
+                        "SELECT `email` FROM %s WHERE user_id=:userid",
+                        $this->config['account_domain_emails_table']
+                    )
+                );
+
+                $stmt->execute([ 'userid' => $userId ]);
+
+                $probableEmails = $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                if( !empty( $probableEmails ) ){
+
+                    /**
+                     * Map emails with corresponding domain to avoid DB Calls in a loop.
+                     */
+                    $emails = [];
+                    foreach ($probableEmails as $email){
+                        $domain = strtolower( explode('@', $email, 2)[1] ?? '' );
+                        if( ( $emails[ $domain ] ?? false) ) $emails[ $domain ] = [];
+                        $emails[ $domain ][] = $email;
+                    }
+
+                    $domains = array_keys( $emails );
+
+                    /**
+                     * We may have multiple domains, however not all might be configured,
+                     * So, we need to reduce that based on which are configured & exists
+                     * in our database as per $includeNotConfigured.
+                     *
+                     * We are expecting, all domains are validated before the were
+                     * saved in database.
+                     */
+                    $stmt = $this->connection->prepare(
+                        sprintf("
+                                SELECT `name` FROM %s
+                                WHERE `name` IN ('". implode("','", $domains) ."')
+                            " . ($includeNotConfigured ? '' : ' AND `is_configured`'),
+                            $this->config['domains_table']
+                        )
+                    );
+
+                    $stmt->execute();
+
+                    /**
+                     * Get only accessible domains
+                     */
+                    $domains = $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                    $emails = array_intersect_key( $emails, array_flip( $domains ));
+
+                    /**
+                     * Flatten the array to return only emails as array and not 2-dimensional array.
+                     */
+                    foreach ( $emails as $item ){
+                        $accessible['emails'] = array_merge( $accessible['emails'], $item );
+                    }
+
+                }
+
+            }
+
+            return $accessible;
+
+        });
+
+    }
+
 
     /**
      * Notify web server about new email.

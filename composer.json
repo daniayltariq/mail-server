@@ -5,7 +5,9 @@
         "phpmailer/phpmailer": "^6.2",
         "php-mime-mail-parser/php-mime-mail-parser": "^6.0",
         "paquettg/php-html-parser": "^3.0",
-        "vlucas/phpdotenv": "^5.1"
+        "vlucas/phpdotenv": "^5.1",
+        "ext-pdo": "*",
+        "thefox/logic": "^1.0"
     },
     "repositories": [
         {
