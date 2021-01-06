@@ -40,11 +40,7 @@ class Server extends \React\Socket\Server
      */
     public function createConnection($socket): \PBMail\Imap\Server\Connection
     {
-
-        $connection = new Connection($socket, $this->loop, $this, $this->dispatcher);
-
-        return $connection;
-
+        return new Connection($socket, $this->loop, $this, $this->dispatcher);
     }
 
 

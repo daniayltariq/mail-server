@@ -61,6 +61,11 @@ class Connection extends Stream implements ConnectionInterface
     const STATE_APPEND_MSG      = 'appendMsg';
 
 
+    const CMD_CLOSE = 'close';
+    const CMD_EXPUNGE = 'expunge';
+    const CMD_CHECK = 'check';
+
+
     /**
      * @var Server
      */
@@ -180,7 +185,7 @@ class Connection extends Stream implements ConnectionInterface
             case static::CMD_LOGOUT:
                 $rv = $this->sendBye('IMAP4rev1 Server logging out');
                 $rv .= $this->sendLogout($tag);
-                $this->close();
+                $this->end();
                 return $rv;
 
 
@@ -361,6 +366,41 @@ class Connection extends Stream implements ConnectionInterface
 
                 return $this->sendNo($commandCmp . ' failure', $tag);
 
+            case static::CMD_EXPUNGE:
+
+                if ( $this->isAuthenticated() ) {
+                    if ($this->selectedFolder) {
+                        return $this->sendExpunge($tag);
+                    }
+
+                    return $this->sendNo('No mailbox selected.', $tag);
+                }
+
+                return $this->sendNo($commandCmp . ' failure', $tag);
+
+
+            case static::CMD_CLOSE:
+
+
+                if ( $this->isAuthenticated() ) {
+                    if ( $this->selectedFolder ) {
+                        return $this->sendClose($tag);
+                    }
+
+                    return $this->sendNo('No mailbox selected.', $tag);
+                }
+
+                return $this->sendNo($commandCmp . ' failure', $tag);
+
+                
+            case static::CMD_CHECK:
+                
+                if ( $this->isAuthenticated() ) {
+                    return $this->sendCheck($tag);
+                }
+
+                return $this->sendNo($commandCmp . ' failure', $tag);
+                
 
                 // ======================================
                 // TODO: Implement rest of commands.
@@ -378,6 +418,12 @@ class Connection extends Stream implements ConnectionInterface
                 if( $this->state->is( static::STATE_AUTH_STEP, 1 ) ){
                     $this->state->set( static::STATE_AUTH_STEP, 2);
                     return $this->sendAuthenticate( $this->parsePlainCredentials( $tag ) );
+
+                } elseif ($this->state->get( static::STATE_APPEND_STEP ) >= 1) {
+                    return $this->sendAppend($line);
+
+                } else {
+                    return $this->sendBad(sprintf('Not implemented: "%s" "%s"', $tag, $command), $tag);
                 }
 
                 // TODO: Add other default handlers.
@@ -998,7 +1044,6 @@ class Connection extends Stream implements ConnectionInterface
 
         $rv = '';
         $msgSeqNums = $this->createSequenceSet($seq, $isUid);
-        var_dump( $msgSeqNums );
 
         // Process collected msgs.
         foreach ($msgSeqNums as $msgSeqNum) {
@@ -1678,6 +1723,78 @@ class Connection extends Stream implements ConnectionInterface
         $rv .= $this->sendOk('SEARCH completed', $tag);
 
         return $rv;
+    }
+
+
+    /**
+     * @param string $tag
+     * @return string
+     */
+    public function sendClose(string $tag): string
+    {
+        $this->sendExpungeRaw();
+        $this->selectedFolder = '';
+        return $this->sendOk('CLOSE completed', $tag);
+    }
+
+    public function sendExpungeRaw(): array
+    {
+
+        $msgSeqNumsExpunge = [];
+        $expungeDiff = 0;
+
+        /** @var int[] $msgSeqNums */
+        $msgSeqNums = $this->createSequenceSet('*');
+
+        foreach ($msgSeqNums as $msgSeqNum) {
+            $expungeSeqNum = $msgSeqNum - $expungeDiff;
+
+            $flags = $this->storage()->getFlagsBySeq($expungeSeqNum, $this->selectedFolder);
+            if (in_array(Storage::FLAG_DELETED, $flags)) {
+                $this->storage()->removeMailBySeq($expungeSeqNum, $this->selectedFolder);
+                $msgSeqNumsExpunge[] = $expungeSeqNum;
+                $expungeDiff++;
+            }
+        }
+
+        return $msgSeqNumsExpunge;
+    }
+
+
+    /**
+     * Send EXPUNGE Message
+     *
+     * @param string $tag
+     * @return string
+     */
+    public function sendExpunge(string $tag): string
+    {
+        $rv = '';
+
+        $msgSeqNumsExpunge = $this->sendExpungeRaw();
+        foreach ($msgSeqNumsExpunge as $msgSeqNum) {
+            $rv .= $this->sendData('* ' . $msgSeqNum . ' EXPUNGE');
+        }
+        $rv .= $this->sendOk('EXPUNGE completed', $tag);
+
+        $this->expunge = [];
+
+        return $rv;
+    }
+
+    /**
+     * Send CHECK Message
+     *
+     * @param string $tag
+     * @return string
+     */
+    private function sendCheck(string $tag): string
+    {
+        if ($this->selectedFolder) {
+            return $this->sendOk('CHECK completed', $tag);
+        } else {
+            return $this->sendNo('No mailbox selected.', $tag);
+        }
     }
 
 }

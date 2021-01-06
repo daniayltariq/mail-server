@@ -12,10 +12,10 @@ $mail->Host = 'localhost';
 $mail->Port = 25;
 $mail->SMTPDebug = true;
 $mail->SMTPAuth = true;
-$mail->Username = 'sptutusukanta@gmail.com';
-$mail->Username = 'system32';
+$mail->Username = 'username@example.com';
+$mail->Username = 'password';
 
-$mail->setFrom('test@anbharat.com', 'ANBharat');
+$mail->setFrom('test@example.com', 'John Doe');
 $mail->addAddress('joe@example.net', 'Joe User');     // Add a recipient
 //$mail->addAddress('ellen@example.com');               // Name is optional
 //$mail->addReplyTo('info@example.com', 'Information');

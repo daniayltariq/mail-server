@@ -310,9 +310,16 @@ class Storage
         return 0;
     }
 
-    public function getFlagsBySeq(int $msgSeqNum, string $selectedFolder)
+    /**
+     * Get flags by sequence number.
+     * 
+     * @param int $msgSeqNum
+     * @param string $selectedFolder
+     * @return array
+     */
+    public function getFlagsBySeq(int $msgSeqNum, string $selectedFolder): array
     {
-        return [ static::FLAG_RECENT ];
+        return [];
     }
 
     public function getMailBySeq(int $msgSeqNum, string $selectedFolder)
@@ -344,6 +351,11 @@ class Storage
             $this->db()->disconnect();
             return null;
         }
+    }
+
+    public function removeMailBySeq(int $expungeSeqNum, string $selectedFolder)
+    {
+        // @NOTICE NOT_IMPLEMENTED
     }
 
 
