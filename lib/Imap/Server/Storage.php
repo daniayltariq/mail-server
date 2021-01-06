@@ -75,73 +75,77 @@ class Storage
     public function prepareSQL(string $folder = self::FOLDER_INBOX, $select = '*', $where = '', $extra = ''){
 
         /**
+         * As the email that are sent is not connected via any foreign key, we must
+         * use like query for the domains on `email_from` column. Likewise, for the
+         * received we'll check on `email_from` column.
          *
-         * If domain id is present, means it is a receiving email. If its
-         * empty, then its sending email.
-         *
-         * But, as the email that are sent is not connected via any foreign
-         * key, we must use like query for the domains on `email_from` column.
-         *
-         * For Received emails, no such check is required as the connected
-         * domain tells the same story.
-         *
+         * For email only accessibility, we'll use IN(...) query as we have the whole
+         * email address to check.
          */
 
-        $sql = "SELECT $select";
 
-        $domains = $this->db()->getDomainsCreatedByUser( $this->userId );
-        if( empty( $domains ) ) return null;
+        $accessible = $this->db()->getAccessibleDomainsAndEmails( $this->userId );
 
+        /**
+         * If both domains & emails are empty, we should return from here.
+         */
 
-        if( in_array( $folder, $this->folders ) ){
-            $field = $folder === static::FOLDER_INBOX ? 'email_to' : 'email_from';
-            $likes = implode(' OR ', array_map(fn($domain) => "`$field` LIKE '%@$domain'", $domains) );
-        }else if( $folder === static::FOLDER_ALL ){
-            $likes = implode(' OR ', array_map(fn($domain) => "`email_from` LIKE '%@$domain' OR `email_to` LIKE '%@$domain'", $domains) );
+        if( empty( $accessible['domains'] ) && empty( $accessible['emails'] ) ){
+            return null;
         }
 
+
+        /**
+         * If we use specific folder, then we should set it in our field
+         * otherwise set it to null.
+         */
+
+        $field = in_array( $folder, $this->folders ) ? (
+            $folder === static::FOLDER_INBOX ? 'email_to' : 'email_from'
+        ) : null;
+
+
+        /**
+         * We are not escaping anything at this stage with the expectation
+         * that emails & domains are validated before storing into database.
+         */
+
+        $emails = implode( "','", $accessible['emails'] );
+
+
+        /**
+         * If a field is set, we'll use that for condition, otherwise we'll
+         * use both fields (email_to, email_from) to check.
+         */
+
+        $conditions = [];
+
+        if( $field ){
+            $conditions[] = implode(' OR ', array_map(
+                fn($domain) => "`$field` LIKE '%@$domain'", $accessible['domains'])
+            );
+            if( !empty( $emails ) ){
+                $conditions[] = "`$field` IN ('$emails')";
+            }
+
+        }else{
+            $conditions[] = implode(' OR ', array_map(
+                fn($domain) => "`email_from` LIKE '%@$domain' OR `email_to` LIKE '%@$domain'", $accessible['domains'])
+            );
+            if( !empty( $emails ) ){
+                $conditions[] = "`email_from` IN ('$emails') OR `email_to` IN ('$emails')";
+            }
+
+        }
+
+        $sql  = "SELECT $select";
         $sql .= "
                 FROM `$this->emails_table` 
                 WHERE EXISTS (
                     SELECT * FROM `$this->domains_table`
                     WHERE `$this->domains_table`.`id` = `$this->emails_table`.`domain_id`
-                ) AND ( $likes )
+                ) AND ( ". implode( " OR ", $conditions ) ." )
             ";
-
-//        if( $folder === static::FOLDER_INBOX ){
-//
-//            $sql .= "
-//                FROM `$this->emails_table`
-//                WHERE EXISTS(
-//                    SELECT * FROM `$this->domains_table`
-//                    WHERE `$this->domains_table`.`id` = `$this->emails_table`.`domain_id`
-//                    AND EXISTS(
-//                        SELECT * FROM `$this->users_table`
-//                        WHERE `$this->users_table`.`id` = :userId
-//                        AND `$this->domains_table`.`created_by_id` = `$this->users_table`.`id`
-//                    )
-//                )
-//            ";
-//
-//        } else {
-//
-//            $domains = $this->db()->getDomainsCreatedByUser( $this->userId );
-//            if( empty( $domains ) ) return null;
-//
-//            $likes = implode(
-//                ' OR ',
-//                array_map(fn($domain) => "`email` LIKE '%@$domain'", $domains)
-//            );
-//
-//            $sql .= "
-//                FROM `$this->emails_table`
-//                WHERE EXISTS (
-//                    SELECT * FROM `$this->domains_table`
-//                    WHERE `$this->domains_table`.`id` = `$this->emails_table`.`domain_id`
-//                ) AND ( $likes )
-//            ";
-//
-//        }
 
         if( $where ){
             $sql .= " AND ($where)";

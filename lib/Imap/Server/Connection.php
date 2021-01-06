@@ -527,9 +527,10 @@ class Connection extends Stream implements ConnectionInterface
     {
 
         if( $username && $password ) {
-            DbHelper::getInstance()->connect();
-            $user = DbHelper::getInstance()->getUserForUsername( $username );
-            DbHelper::getInstance()->disconnect();
+
+            $db = DbHelper::getInstance();
+            $user = $db->getUserForUsername( $username, '`id`, `password`' );
+
             if( $user && password_verify( $password, $user['password'] ) ){
                 $this->state->set( static::STATE_AUTH_USER, $user['id'] );
                 return true;
