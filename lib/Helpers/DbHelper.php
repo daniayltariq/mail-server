@@ -138,6 +138,17 @@ class DbHelper
                 'updated' => date("Y-m-d H:i:s"),
             ]);
             $emailId = $this->connection->lastInsertId();
+
+            //set the groupId
+            if ($inReplyTo) {
+                //if inReplyTo exists then set the parent's groupId as a groupId
+                $groupId  = $this->getParentGroupId($inReplyTo);
+            } else {
+                //if inReplyTo not exists then set email's Id as a groupId
+                $groupId = $emailId;
+            }
+            $this->setGroupId($emailId, $groupId);
+
             // If domain id is found then this is an email that comes to one of our domain.
             // User may setup webhook and we have to process. Therefore, trigger the webhook.
             // If domain id is not found this mean this is an outgoing email that goes to unknown domain.
@@ -682,6 +693,25 @@ class DbHelper
         }catch (\Exception $e){
             return false;
         }
+    }
+
+    // Get parent groupId belongs to current email
+    protected function getParentGroupId($inReplyTo)
+    {
+        $stmt = $this->connection->prepare("SELECT group_id FROM emails WHERE message_id=?");
+        $stmt->bind_param("s", $inReplyTo);
+        $stmt->execute();
+        $stmt->bind_result($parentGroupId);
+        $stmt->fetch();
+        return $parentGroupId;
+    }
+
+    // Set groupId
+    protected function setGroupId($emailId, $groupId){
+        $stmt = $this->connection->prepare("UPDATE emails SET group_id=? WHERE id=?");
+        $stmt->bind_param("ii", $groupId,$emailId);
+        $stmt->execute();
+        return true;
     }
 
 }
