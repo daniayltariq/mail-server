@@ -21,10 +21,12 @@ class MailHelper
      * @param $references
      * @return bool
      */
-    public static function sendMail($from, $fromName, $to, $subject, $htmlBody, $inReplyTo, $references){
+    public static function sendMail($from, $fromName, $to, $cc, $bcc, $subject, $htmlBody, $inReplyTo, $references){
         try{
             $mail = new PHPMailer(true);
             $mail->addAddress($to);
+            // $mail->addCC($cc);
+            // $mail->addBCC($bcc);
             $mail->Subject = $subject;
             $mail->Body = $htmlBody;
             $mail->isHTML(true);

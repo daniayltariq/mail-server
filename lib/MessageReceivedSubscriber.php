@@ -3,8 +3,11 @@ namespace PBMail;
 
 use PBMail\Smtp\Server\Event\MessageReceivedEvent;
 use PBMail\Smtp\Server\Events;
+use PBMail\Smtp\Server\Event\LogSubscriber;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use PhpMimeMailParser\Parser;
+// use PBMail\ConnectionRcptReceivedEvent;
+// use Psr\Log\LoggerInterface;
 
 class MessageReceivedSubscriber implements EventSubscriberInterface
 {
@@ -32,6 +35,15 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         ];
     }
 
+    public function clearArray($array)
+    {
+        // cc
+        // [{"display":"cc1@example.site","address":"cc1@example.site","is_group":false},{"display":"cc2@example.site","address":"cc2@example.site","is_group":false},{"display":"cc3@example.site","address":"cc3@example.site","is_group":false}]
+        // bcc
+        // [{"name":"joe@example.net","email":null},{"name":"cc1@example.site","email":null},{"name":"cc2@example.site","email":null},{"name":"cc3@example.site","email":null},{"name":"bcc1@example.site","email":null},{"name":"bcc2@example.site","email":null}]
+
+    }
+
     /**
      * @param MessageReceivedEvent $event
      */
@@ -52,6 +64,14 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         $parser->setText($rawEmail);
         $from = $parser->getAddresses('from');
         $to = $parser->getAddresses('to');
+        $cc = $parser->getAddresses('cc');
+
+        // $bcc = $parser->getAddresses('bcc'); //returns nothing
+        $bcc = $_SESSION["bcc"];//$parser->getHeadersRaw(); //does not contain the bcc addresses
+        $_SESSION["bcc"] = array(); //making it blank for next mail
+
+        
+
         $subject = $parser->getHeader('subject');
         $html = $parser->getMessageBody('html');
         // Message-ID is the identifier for email. This will be used to identify replied emails.
@@ -67,6 +87,8 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
             $from[0]['address'],
             $from[0]['display'],
             $to[0]['address'],
+            $cc,
+            $bcc,
             $subject,
             $html,
             $username,

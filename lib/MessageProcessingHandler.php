@@ -27,7 +27,7 @@ class MessageProcessingHandler {
      * @param String $references
      * @param string $rawEmail
      */
-    public function processEmail($from, $fromName, $to, $subject, $body, $username, $messageId, $inReplyTo, $references, $rawEmail = '')
+    public function processEmail($from, $fromName, $to, $cc, $bcc, $subject, $body, $username, $messageId, $inReplyTo, $references, $rawEmail = '')
     {
         $dbHelper = DbHelper::getInstance();
         $fromDomain = $dbHelper->findDomainShort($from);
@@ -41,20 +41,20 @@ class MessageProcessingHandler {
                 if($toDomain){
                     // Email is sent to our domain.
                     // In this case save email directly to db
-                    $this->store($from, $to, $subject, $body,'', $messageId, $inReplyTo, $references, $rawEmail);
+                    $this->store($from, $to, $cc, $bcc, $subject, $body,'', $messageId, $inReplyTo, $references, $rawEmail);
                 }else{
                     // Email is sent to another domain.
                     // Relay email in this case.
                     // MailHelper:sendMail will return Message-ID, we should save this to emails table.
                     // Message-ID will be used to identify replies to emails we sent.
-                    $sent = MailHelper::sendMail($from, $fromName, $to, $subject, $body, $inReplyTo, $references);
+                    $sent = MailHelper::sendMail($from, $fromName, $to, $cc, $bcc, $subject, $body, $inReplyTo, $references);
                     if(!$sent){
                         echo json_encode('EMAIL IS NOT SENT').PHP_EOL;
                         // An error occurred
                     }else{
                         echo json_encode('EMAIL IS SENT').PHP_EOL;
                         // Mail sent
-                        $this->store($from, $to, $subject, $body, '', $sent, $inReplyTo, $references, $rawEmail);
+                        $this->store($from, $to, $cc, $bcc, $subject, $body, '', $sent, $inReplyTo, $references, $rawEmail);
                         echo json_encode('EMAIL IS SAVED').PHP_EOL;
                     }
                 }
@@ -125,13 +125,13 @@ class MessageProcessingHandler {
      * @param string $rawEmail
      * @return bool
      */
-    private function store($from, $to, $subject, $body, $code, $messageId, $inReplyTo, $references, $rawEmail = '')
+    private function store($from, $to, $cc, $bcc, $subject, $body, $code, $messageId, $inReplyTo, $references, $rawEmail = '')
     {
         try{
             // We call the singleton object. Because we cannot create an instance explicitly.
             $dbHelper = DbHelper::getInstance();
             $dbHelper->connect();
-            $dbHelper->storeEmail($from, $to, $subject, $body, $code, $messageId, $inReplyTo, $references, $rawEmail);
+            $dbHelper->storeEmail($from, $to, $cc, $bcc, $subject, $body, $code, $messageId, $inReplyTo, $references, $rawEmail);
             $dbHelper->disconnect();
             return true;
         }catch(\Exception $e){

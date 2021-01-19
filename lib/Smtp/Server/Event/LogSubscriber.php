@@ -17,6 +17,7 @@ class LogSubscriber implements EventSubscriberInterface
      */
     protected $logger;
 
+    public $bcc;
     /**
      * LogSubscriber constructor.
      * @param LoggerInterface $logger
@@ -24,6 +25,7 @@ class LogSubscriber implements EventSubscriberInterface
     public function __construct(LoggerInterface $logger)
     {
         $this->logger = $logger;
+        $this->bcc = array();
     }
 
     /**
@@ -70,6 +72,17 @@ class LogSubscriber implements EventSubscriberInterface
         $this->logger->debug('From: '.$name.' <'.$mail.'>');
     }
 
+    // /**
+    //  * @param ConnectionRcptReceivedEvent $event
+    //  */
+    // public function onConnectionRcptReceived(ConnectionRcptReceivedEvent $event)
+    // {
+    //     $mail = $event->getMail();
+    //     $name = $event->getName() ?: $mail;
+    //     $this->logger->debug('Rcpt: '.$name.' <'.$mail.'>');
+    // }
+
+
     /**
      * @param ConnectionRcptReceivedEvent $event
      */
@@ -78,6 +91,9 @@ class LogSubscriber implements EventSubscriberInterface
         $mail = $event->getMail();
         $name = $event->getName() ?: $mail;
         $this->logger->debug('Rcpt: '.$name.' <'.$mail.'>');
+        array_push($this->bcc, ['display'=>$name, 'address'=>$mail]);
+        $this->logger->debug(json_encode($this->bcc));
+        $_SESSION["bcc"] = $this->bcc;
     }
 
     /**
