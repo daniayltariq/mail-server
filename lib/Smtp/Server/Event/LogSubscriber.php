@@ -72,17 +72,6 @@ class LogSubscriber implements EventSubscriberInterface
         $this->logger->debug('From: '.$name.' <'.$mail.'>');
     }
 
-    // /**
-    //  * @param ConnectionRcptReceivedEvent $event
-    //  */
-    // public function onConnectionRcptReceived(ConnectionRcptReceivedEvent $event)
-    // {
-    //     $mail = $event->getMail();
-    //     $name = $event->getName() ?: $mail;
-    //     $this->logger->debug('Rcpt: '.$name.' <'.$mail.'>');
-    // }
-
-
     /**
      * @param ConnectionRcptReceivedEvent $event
      */
@@ -92,7 +81,7 @@ class LogSubscriber implements EventSubscriberInterface
         $name = $event->getName() ?: $mail;
         $this->logger->debug('Rcpt: '.$name.' <'.$mail.'>');
         array_push($this->bcc, ['display'=>$name, 'address'=>$mail]);
-        $this->logger->debug(json_encode($this->bcc));
+        // $this->logger->debug(json_encode($this->bcc));
         $_SESSION["bcc"] = $this->bcc;
     }
 
