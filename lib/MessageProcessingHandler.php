@@ -29,9 +29,17 @@ class MessageProcessingHandler {
      */
     public function processEmail($from, $fromName, $to, $cc, $bcc, $subject, $body, $username, $messageId, $inReplyTo, $references, $rawEmail = '')
     {
+        $fromDomain  = false;
+        $toDomain = false;
         $dbHelper = DbHelper::getInstance();
         $fromDomain = $dbHelper->findDomainShort($from);
-        $toDomain = $dbHelper->findDomainShort($to);
+
+        foreach ($to as $to_single_domain) {
+            $toDomain = $dbHelper->findDomainShort($to_single_domain);
+            if($toDomain){
+                break;
+            } 
+        }
 
         if($fromDomain){
             // Email is sent from our domain

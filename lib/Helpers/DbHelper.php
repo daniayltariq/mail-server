@@ -106,7 +106,14 @@ class DbHelper
         // Users are associated with domains, and all emails are associated with domain.
         // Therefore, we need to find out the related domain for the incoming email.
         // If domain is not found, then this is outgoing email. set domain id to null.
-        $domainId = $this->findDomain($to);
+        $domainId = false;
+        foreach ($to as $to_single_domain) {
+            $domainId = $this->findDomain($to_single_domain);
+            if($domainId){
+                break;
+            } 
+        }
+        
         $domain = null;
         if($domainId){
             $domain = $domainId;
@@ -125,9 +132,9 @@ class DbHelper
             );
             $preparedStatement->execute([
                 'from' => strtolower($from),
-                'to' => $to,
-                'cc' => $cc,
-                'bcc' => $bcc,
+                'to' => json_encode($to),
+                'cc' => json_encode($cc),
+                'bcc' => json_encode($bcc),
                 'subject' => $subject,
                 'body' => $body,
                 'rawEmail' => $rawEmail,

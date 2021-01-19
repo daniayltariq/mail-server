@@ -24,9 +24,16 @@ class MailHelper
     public static function sendMail($from, $fromName, $to, $cc, $bcc, $subject, $htmlBody, $inReplyTo, $references){
         try{
             $mail = new PHPMailer(true);
-            $mail->addAddress($to);
-            // $mail->addCC($cc);
-            // $mail->addBCC($bcc);
+            foreach ($to as $to_addr) {
+                $mail->addAddress($to_addr);
+            }
+            foreach ($cc as $cc_addr) {
+                $mail->addCC($cc_addr);
+            }
+            foreach ($bcc as $bcc_addr) {
+                $mail->addBCC($bcc_addr);
+            }
+            
             $mail->Subject = $subject;
             $mail->Body = $htmlBody;
             $mail->isHTML(true);
@@ -63,10 +70,10 @@ class MailHelper
             $mail->DKIM_copyHeaderFields = false;
 
             $mail->send();
-            echo json_encode(sprintf('Email sent from <%s> to <%s>.', $from, $to)).PHP_EOL;
+            echo json_encode(sprintf('Email sent from <%s> to <%s>.', $from, json_encode($to))).PHP_EOL;
             return $mail->getLastMessageID();
         }catch (\Exception $e){
-            echo json_encode(sprintf('Email is not sent from <%s> to <%s>.', $from, $to)).PHP_EOL;
+            echo json_encode(sprintf('Email is not sent from <%s> to <%s>.', $from, json_encode($to))).PHP_EOL;
             return false;
         }
     }

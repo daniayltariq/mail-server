@@ -35,13 +35,35 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         ];
     }
 
-    public function clearArray($array)
-    {
-        // cc
-        // [{"display":"cc1@example.site","address":"cc1@example.site","is_group":false},{"display":"cc2@example.site","address":"cc2@example.site","is_group":false},{"display":"cc3@example.site","address":"cc3@example.site","is_group":false}]
-        // bcc
-        // [{"name":"joe@example.net","email":null},{"name":"cc1@example.site","email":null},{"name":"cc2@example.site","email":null},{"name":"cc3@example.site","email":null},{"name":"bcc1@example.site","email":null},{"name":"bcc2@example.site","email":null}]
+    public function extract_emails_from($string){
+      preg_match_all("/[\._a-zA-Z0-9-]+@[\._a-zA-Z0-9-]+/i", $string, $matches);
+      return array_values(array_unique($matches[0]));
+    }
 
+    public function getBCC($to, $cc)
+    {
+        $bcc = $_SESSION["bcc"];
+        $_SESSION["bcc"] = array(); 
+
+        $cleaned_up_bcc = $this->extract_emails_from(json_encode($bcc));
+    
+        foreach ($to as $to_addr) {
+            foreach ($cleaned_up_bcc as $key=>$bcc_addr) {
+                if($bcc_addr == $to_addr){
+                    unset($cleaned_up_bcc[$key]);
+                }
+            }
+        }
+
+        foreach ($cc as $cc_addr) {
+            foreach ($cleaned_up_bcc as $key=>$bcc_addr){
+                if($bcc_addr == $cc_addr){
+                    unset($cleaned_up_bcc[$key]);
+                }
+            }
+        }
+
+        return array_values($cleaned_up_bcc);//reindex array
     }
 
     /**
@@ -63,14 +85,10 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         $rawEmail = $event->getMessage();
         $parser->setText($rawEmail);
         $from = $parser->getAddresses('from');
-        $to = $parser->getAddresses('to');
-        $cc = $parser->getAddresses('cc');
+        $to = $this->extract_emails_from(json_encode($parser->getAddresses('to')));
+        $cc = $this->extract_emails_from(json_encode($parser->getAddresses('cc')));
 
-        // $bcc = $parser->getAddresses('bcc'); //returns nothing
-        $bcc = $_SESSION["bcc"];//$parser->getHeadersRaw(); //does not contain the bcc addresses
-        $_SESSION["bcc"] = array(); //making it blank for next mail
-
-        
+        $bcc = $this->getBCC($to, $cc);//$parser->getHeadersRaw(); //does not contain the bcc addresses
 
         $subject = $parser->getHeader('subject');
         $html = $parser->getMessageBody('html');
@@ -86,9 +104,9 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         $this->handler->processEmail(
             $from[0]['address'],
             $from[0]['display'],
-            json_encode($to),
-            json_encode($cc),
-            json_encode($bcc),
+            $to,
+            $cc,
+            $bcc,
             $subject,
             $html,
             $username,
