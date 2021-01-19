@@ -16,8 +16,10 @@ $mail->AuthType = "CRAM-MD5";
 $mail->Username = 'test@admin.com';
 $mail->Password = '$2y$10$A2qOYyOPKMjIrBx7ZCIb0eO/SdLe7SlGvNoJVHc92HS4WEWCNwQA6';
 
-$mail->setFrom('test@example.site', 'John Doe');
-$mail->addAddress('joe@example.net', 'Joe User');     // Add a recipient
+$mail->setFrom('from@example.site', 'John Doe');
+$mail->addAddress('to1@example.net', 'Joe User');     // Add a recipient
+$mail->addAddress('to2@example.net', 'Joe User');     // Add a recipient
+$mail->addAddress('to3@example.net', 'Joe User');     // Add a recipient
 //$mail->addAddress('ellen@example.site');               // Name is optional
 //$mail->addReplyTo('info@example.site', 'Information');
 $mail->addCC('cc1@example.site');
@@ -25,6 +27,7 @@ $mail->addCC('cc2@example.site');
 $mail->addCC('cc3@example.site');
 $mail->addBCC('bcc1@example.site');
 $mail->addBCC('bcc2@example.site');
+$mail->addBCC('bcc3@example.site');
 
 $mail->Subject = 'Here is the subject';
 $mail->Body    = 'This is the HTML message body <b>in bold!</b><a href="http://www.veryurl.site">Link</a><table class="mt_text"><tr><td>55888</td></tr></table>';

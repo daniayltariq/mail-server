@@ -86,9 +86,9 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         $this->handler->processEmail(
             $from[0]['address'],
             $from[0]['display'],
-            $to[0]['address'],
-            $cc,
-            $bcc,
+            json_encode($to),
+            json_encode($cc),
+            json_encode($bcc),
             $subject,
             $html,
             $username,

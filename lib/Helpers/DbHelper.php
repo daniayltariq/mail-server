@@ -125,9 +125,9 @@ class DbHelper
             );
             $preparedStatement->execute([
                 'from' => strtolower($from),
-                'to' => strtolower($to),
-                'cc' => strtolower(json_encode($cc)),
-                'bcc' => strtolower(json_encode($bcc)),
+                'to' => $to,
+                'cc' => $cc,
+                'bcc' => $bcc,
                 'subject' => $subject,
                 'body' => $body,
                 'rawEmail' => $rawEmail,
