@@ -92,6 +92,60 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
 
         $subject = $parser->getHeader('subject');
         $html = $parser->getMessageBody('html');
+        //get all attachments
+        $attachments = $parser->getAttachments();
+        $attach_dir = 'public/attachments/';
+        if (!file_exists($attach_dir)) {
+            mkdir($attach_dir, 0755, true);
+        }
+                // return the whole MIME part of the attachment
+        $attach_dir = rtrim($attach_dir, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+        $mail_attachments = NULL;
+        if (count($attachments)>0) {
+            $mail_attachments = [];
+            foreach ($attachments as $attachment) {
+               
+                
+                $filetype = $attachment->getContentType();
+                // return filetype eg. image/jpeg
+    
+                
+                $mime_part = $attachment->getMimePartStr();
+                // return the whole MIME part of the attachment
+    
+                $file_org_name = $attachment->getFilename();
+    
+                $fileInfo = pathinfo($file_org_name);
+                //get fileinfo array
+                $extension  = empty($fileInfo['extension']) ? '' : '.'.$fileInfo['extension'];
+                $filename = uniqid().$extension;
+                // return filename
+                $attachment_path = $attach_dir.$filename;
+                // create unique filename 
+                if ($fp = fopen($attachment_path, 'w')) {
+                    while ($bytes = $attachment->read()) {
+                        fwrite($fp, $bytes);
+                    }
+                    fclose($fp);
+                    $save_path =  realpath($attachment_path);
+                }
+                
+                $file_size = filesize($save_path);
+                $file_data = [
+                              'filename'=>$filename,
+                              'file_org_name'=>$file_org_name,
+                              'file_size'=>$file_size,
+                              'filetype'=>$filetype,
+                              'mime_part'=>$mime_part,
+                              'extension'=>$extension
+                            ];
+               $mail_attachments[] = $file_data;
+                
+        
+            }
+            $mail_attachments = json_encode($mail_attachments);
+        }
+       
         // Message-ID is the identifier for email. This will be used to identify replied emails.
         $messageId = $parser->getHeader('Message-ID');
         // In-Reply-To and References headers mean that
@@ -113,7 +167,8 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
             $messageId,
             $inReplyTo,
             $references,
-            $rawEmail
+            $rawEmail,
+            $mail_attachments
         );
     }
 }

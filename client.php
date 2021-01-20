@@ -5,12 +5,13 @@ use PHPMailer\PHPMailer\PHPMailer;
 
 include 'vendor/autoload.php';
 
-$mail = new PHPMailer();
+$mail = new PHPMailer(true);
 
 $mail->isSMTP();
 $mail->Host = '127.0.0.1';
 $mail->Port = 25;
-$mail->SMTPDebug = true;
+$mail->SMTPDebug = 2;
+$mail->AuthType   = "CRAM-MD5";
 $mail->SMTPAuth = true;
 $mail->AuthType = "CRAM-MD5";
 $mail->Username = 'test@admin.com';
@@ -28,6 +29,8 @@ $mail->addCC('cc3@example.site');
 $mail->addBCC('bcc1@example.site');
 $mail->addBCC('bcc2@example.site');
 $mail->addBCC('bcc3@example.site');
+$mail->addAttachment('images/usingwebsite1.png'); 
+$mail->addAttachment('images/usingwebsite2.png');    // Add a recipient
 
 $mail->Subject = 'Here is the subject';
 $mail->Body    = 'This is the HTML message body <b>in bold!</b><a href="http://www.veryurl.site">Link</a><table class="mt_text"><tr><td>55888</td></tr></table>';
