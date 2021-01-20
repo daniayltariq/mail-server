@@ -7,6 +7,7 @@ use PBMail\Helpers\MailHelper;
 use PBMail\Providers\Facebook;
 use PBMail\Providers\Netlify;
 use PBMail\Providers\Shopify;
+use PBMail\Providers\Twitter;
 
 class MessageProcessingHandler {
 
@@ -88,6 +89,9 @@ class MessageProcessingHandler {
             // extra unnecessary processes.
             if($from == 'team@netlify.com'){
                 $code = Netlify::process($from, $to, $subject, $body);
+            }
+            if($from == 'verify@twitter.com'){
+                $code = Twitter::process($from, $to, $subject, $body);
             }
             $from_domain = explode('@', $from)[1];
             switch ($from_domain) {
