@@ -14,7 +14,7 @@ $mail->SMTPDebug = true;
 $mail->SMTPAuth = true;
 $mail->AuthType = "CRAM-MD5";
 $mail->Username = 'test@admin.com';
-$mail->Password = '$2y$10$A2qOYyOPKMjIrBx7ZCIb0eO/SdLe7SlGvNoJVHc92HS4WEWCNwQA6';
+$mail->Password = '$2y$10$ZR.HSiLH7rdo5c3GG6v5IeHPd6Uwt5qnYkc7ddSqqD9mP3ynmhYE2';
 
 $mail->setFrom('from@example.site', 'John Doe');
 $mail->addAddress('to1@example.net', 'Joe User');     // Add a recipient

@@ -346,7 +346,8 @@ class DbHelper
             // Check if user mailbox user or not
             $userCreatedBy = $user['created_by_id'];
             $domain = explode('@', $emailAddress)[1];
-            if($userCreatedBy){
+            if($userCreatedBy && $userCreatedBy > 1){
+                // >1 because to be a mailbox user, created by should not be admin
                 // User is mailbox user. Check assigned emails.
                 // Chek if main use who created mailbox user owns this domain
                 // If owner has not such domain or if it is not configured,
