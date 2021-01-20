@@ -3,8 +3,11 @@ namespace PBMail;
 
 use PBMail\Smtp\Server\Event\MessageReceivedEvent;
 use PBMail\Smtp\Server\Events;
+use PBMail\Smtp\Server\Event\LogSubscriber;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use PhpMimeMailParser\Parser;
+// use PBMail\ConnectionRcptReceivedEvent;
+// use Psr\Log\LoggerInterface;
 
 class MessageReceivedSubscriber implements EventSubscriberInterface
 {
@@ -32,6 +35,37 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         ];
     }
 
+    public function extract_emails_from($string){
+      preg_match_all("/[\._a-zA-Z0-9-]+@[\._a-zA-Z0-9-]+/i", $string, $matches);
+      return array_values(array_unique($matches[0]));
+    }
+
+    public function getBCC($to, $cc)
+    {
+        $bcc = $_SESSION["bcc"];
+        $_SESSION["bcc"] = array(); 
+
+        $cleaned_up_bcc = $this->extract_emails_from(json_encode($bcc));
+    
+        foreach ($to as $to_addr) {
+            foreach ($cleaned_up_bcc as $key=>$bcc_addr) {
+                if($bcc_addr == $to_addr){
+                    unset($cleaned_up_bcc[$key]);
+                }
+            }
+        }
+
+        foreach ($cc as $cc_addr) {
+            foreach ($cleaned_up_bcc as $key=>$bcc_addr){
+                if($bcc_addr == $cc_addr){
+                    unset($cleaned_up_bcc[$key]);
+                }
+            }
+        }
+
+        return array_values($cleaned_up_bcc);//reindex array
+    }
+
     /**
      * @param MessageReceivedEvent $event
      */
@@ -51,7 +85,11 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         $rawEmail = $event->getMessage();
         $parser->setText($rawEmail);
         $from = $parser->getAddresses('from');
-        $to = $parser->getAddresses('to');
+        $to = $this->extract_emails_from(json_encode($parser->getAddresses('to')));
+        $cc = $this->extract_emails_from(json_encode($parser->getAddresses('cc')));
+
+        $bcc = $this->getBCC($to, $cc);//$parser->getHeadersRaw(); //does not contain the bcc addresses
+
         $subject = $parser->getHeader('subject');
         $html = $parser->getMessageBody('html');
         //get all attachments
@@ -120,7 +158,9 @@ class MessageReceivedSubscriber implements EventSubscriberInterface
         $this->handler->processEmail(
             $from[0]['address'],
             $from[0]['display'],
-            $to[0]['address'],
+            $to,
+            $cc,
+            $bcc,
             $subject,
             $html,
             $username,

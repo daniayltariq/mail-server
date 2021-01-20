@@ -102,11 +102,19 @@ class DbHelper
      * @param string $rawEmail
      * @return false|string
      */
-    public function storeEmail($from, $to, $subject, $body, $code, $messageId, $inReplyTo, $references, $rawEmail = '',$mail_attachments=null){
+
+    public function storeEmail($from, $to, $cc, $bcc, $subject, $body, $code, $messageId, $inReplyTo, $references, $rawEmail = '', $mail_attachments=null){
         // Users are associated with domains, and all emails are associated with domain.
         // Therefore, we need to find out the related domain for the incoming email.
         // If domain is not found, then this is outgoing email. set domain id to null.
-        $domainId = $this->findDomain($to);
+        $domainId = false;
+        foreach ($to as $to_single_domain) {
+            $domainId = $this->findDomain($to_single_domain);
+            if($domainId){
+                break;
+            } 
+        }
+        
         $domain = null;
         if($domainId){
             $domain = $domainId;
@@ -116,16 +124,18 @@ class DbHelper
             $preparedStatement = $this->connection->prepare(
                 sprintf("
                     INSERT INTO %s (
-                        email_from, email_to, subject, body, raw_email, code, domain_id,
-                        message_id, in_reply_to, reference, created_at, updated_at,attachments
-                    )VALUES (:from, :to, :subject, :body, :rawEmail, :code, :domain, :messageId, :inReplyTo, :reference, :created, :updated,:attachments)
+                        email_from, email_to, cc, bcc, subject, body, raw_email, code, domain_id,
+                        message_id, in_reply_to, reference, created_at, updated_at, attachments
+                    )VALUES (:from, :to, :cc, :bcc, :subject, :body, :rawEmail, :code, :domain, :messageId, :inReplyTo, :reference, :created, :updated, :attachments)
                 ",
                     $this->config['emails_table']
                 )
             );
             $preparedStatement->execute([
                 'from' => strtolower($from),
-                'to' => strtolower($to),
+                'to' => json_encode($to),
+                'cc' => json_encode($cc),
+                'bcc' => json_encode($bcc),
                 'subject' => $subject,
                 'body' => $body,
                 'rawEmail' => $rawEmail,
@@ -338,7 +348,8 @@ class DbHelper
             // Check if user mailbox user or not
             $userCreatedBy = $user['created_by_id'];
             $domain = explode('@', $emailAddress)[1];
-            if($userCreatedBy){
+            if($userCreatedBy && $userCreatedBy > 1){
+                // >1 because to be a mailbox user, created by should not be admin
                 // User is mailbox user. Check assigned emails.
                 // Chek if main use who created mailbox user owns this domain
                 // If owner has not such domain or if it is not configured,
