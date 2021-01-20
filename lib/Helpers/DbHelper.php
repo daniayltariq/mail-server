@@ -102,7 +102,7 @@ class DbHelper
      * @param string $rawEmail
      * @return false|string
      */
-    public function storeEmail($from, $to, $subject, $body, $code, $messageId, $inReplyTo, $references, $rawEmail = ''){
+    public function storeEmail($from, $to, $subject, $body, $code, $messageId, $inReplyTo, $references, $rawEmail = '',$mail_attachments=null){
         // Users are associated with domains, and all emails are associated with domain.
         // Therefore, we need to find out the related domain for the incoming email.
         // If domain is not found, then this is outgoing email. set domain id to null.
@@ -117,8 +117,8 @@ class DbHelper
                 sprintf("
                     INSERT INTO %s (
                         email_from, email_to, subject, body, raw_email, code, domain_id,
-                        message_id, in_reply_to, reference, created_at, updated_at
-                    )VALUES (:from, :to, :subject, :body, :rawEmail, :code, :domain, :messageId, :inReplyTo, :reference, :created, :updated)
+                        message_id, in_reply_to, reference, created_at, updated_at,attachments
+                    )VALUES (:from, :to, :subject, :body, :rawEmail, :code, :domain, :messageId, :inReplyTo, :reference, :created, :updated,:attachments)
                 ",
                     $this->config['emails_table']
                 )
@@ -136,6 +136,7 @@ class DbHelper
                 'reference' => $references,
                 'created' => date("Y-m-d H:i:s"),
                 'updated' => date("Y-m-d H:i:s"),
+                'attachments'=>$mail_attachments
             ]);
             $emailId = $this->connection->lastInsertId();
 

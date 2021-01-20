@@ -5,18 +5,20 @@ use PHPMailer\PHPMailer\PHPMailer;
 
 include 'vendor/autoload.php';
 
-$mail = new PHPMailer();
+$mail = new PHPMailer(true);
 
 $mail->isSMTP();
-$mail->Host = 'localhost';
+$mail->Host = '127.0.0.1';
 $mail->Port = 25;
-$mail->SMTPDebug = true;
+$mail->SMTPDebug = 2;
+$mail->AuthType   = "CRAM-MD5";
 $mail->SMTPAuth = true;
-$mail->Username = 'username@example.com';
-$mail->Username = 'password';
-
-$mail->setFrom('test@example.com', 'John Doe');
-$mail->addAddress('joe@example.net', 'Joe User');     // Add a recipient
+$mail->Username = 'test@admin.com';
+$mail->Password   = '$2y$10$EVUt3IYVW/Vd/AMZZ0HqBeUKEQUWIlEMEGZJ/m8eNLDcZF2LrF4Ee';
+$mail->setFrom('test@example.site', 'John Doe');
+$mail->addAddress('test@timelesscomputersblog.club', 'Joe User'); 
+$mail->addAttachment('images/usingwebsite1.png'); 
+$mail->addAttachment('images/usingwebsite2.png');    // Add a recipient
 //$mail->addAddress('ellen@example.com');               // Name is optional
 //$mail->addReplyTo('info@example.com', 'Information');
 //$mail->addCC('cc@example.com');
