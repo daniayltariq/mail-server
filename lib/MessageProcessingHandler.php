@@ -75,7 +75,7 @@ class MessageProcessingHandler {
             // If receiver is one of our domains then process the email for possible verification code and then save it.
             if($toDomain){
                 $code = $this->extractVerificationCode($from, $to, $subject, $body);
-                $this->store($from, $to, $subject, $body, $code, $messageId, $inReplyTo, $references, $rawEmail,$mail_attachments);
+                $this->store($from, $to, $cc, $bcc, $subject, $body, '', $sent, $inReplyTo, $references, $rawEmail, $mail_attachments);
                 echo json_encode('EMAIL SAVED').PHP_EOL;
             }
         }
