@@ -120,34 +120,46 @@ class DbHelper
             $domain = $domainId;
         }
         try{
+
+            $email_to = [];
+            // Save Out Going Email in Multiple Rows
+            if(is_array($to)){
+                $email_to = $to;
+            }else{
+                $email_to[] = $to;
+            }
+            
             // Save email to emails table
-            $preparedStatement = $this->connection->prepare(
-                sprintf("
-                    INSERT INTO %s (
-                        email_from, email_to, cc, bcc, subject, body, raw_email, code, domain_id,
-                        message_id, in_reply_to, reference, created_at, updated_at, attachments
-                    )VALUES (:from, :to, :cc, :bcc, :subject, :body, :rawEmail, :code, :domain, :messageId, :inReplyTo, :reference, :created, :updated, :attachments)
-                ",
-                    $this->config['emails_table']
-                )
-            );
-            $preparedStatement->execute([
-                'from' => strtolower($from),
-                'to' => json_encode($to),
-                'cc' => json_encode($cc),
-                'bcc' => json_encode($bcc),
-                'subject' => $subject,
-                'body' => $body,
-                'rawEmail' => $rawEmail,
-                'code' => $code,
-                'domain' => $domain,
-                'messageId' => $messageId,
-                'inReplyTo' => $inReplyTo,
-                'reference' => $references,
-                'created' => date("Y-m-d H:i:s"),
-                'updated' => date("Y-m-d H:i:s"),
-                'attachments'=>$mail_attachments
-            ]);
+            foreach ($email_to as $em_to) {
+                $preparedStatement = $this->connection->prepare(
+                    sprintf("
+                        INSERT INTO %s (
+                            email_from, email_to, cc, bcc, subject, body, raw_email, code, domain_id,
+                            message_id, in_reply_to, reference, created_at, updated_at, attachments
+                        )VALUES (:from, :to, :cc, :bcc, :subject, :body, :rawEmail, :code, :domain, :messageId, :inReplyTo, :reference, :created, :updated, :attachments)
+                    ",
+                        $this->config['emails_table']
+                    )
+                );
+                $preparedStatement->execute([
+                    'from' => strtolower($from),
+                    'to' => $em_to,
+                    'cc' => json_encode($cc),
+                    'bcc' => json_encode($bcc),
+                    'subject' => $subject,
+                    'body' => $body,
+                    'rawEmail' => $rawEmail,
+                    'code' => $code,
+                    'domain' => $domain,
+                    'messageId' => $messageId,
+                    'inReplyTo' => $inReplyTo,
+                    'reference' => $references,
+                    'created' => date("Y-m-d H:i:s"),
+                    'updated' => date("Y-m-d H:i:s"),
+                    'attachments'=>$mail_attachments
+                ]);
+            }
+
             $emailId = $this->connection->lastInsertId();
 
             //set the groupId
