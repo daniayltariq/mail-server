@@ -722,19 +722,17 @@ class DbHelper
     // Get parent groupId belongs to current email
     protected function getParentGroupId($inReplyTo)
     {
-        $stmt = $this->connection->prepare("SELECT group_id FROM emails WHERE message_id=?");
-        $stmt->bind_param("s", $inReplyTo);
-        $stmt->execute();
-        $stmt->bind_result($parentGroupId);
-        $stmt->fetch();
-        return $parentGroupId;
+        $stmt = $this->connection->prepare("SELECT group_id FROM emails WHERE message_id=:message_id");
+        $stmt->execute(['message_id' => $inReplyTo]);
+        $stmt->setFetchMode(\PDO::FETCH_ASSOC);
+        $email = $stmt->fetchAll();
+        return $email[0]['group_id'];
     }
 
     // Set groupId
     protected function setGroupId($emailId, $groupId){
-        $stmt = $this->connection->prepare("UPDATE emails SET group_id=? WHERE id=?");
-        $stmt->bind_param("ii", $groupId,$emailId);
-        $stmt->execute();
+        $stmt = $this->connection->prepare("UPDATE emails SET group_id=:group_id WHERE id=:id");
+        $stmt->execute(['group_id' => $groupId, 'id' => $emailId]);
         return true;
     }
 
