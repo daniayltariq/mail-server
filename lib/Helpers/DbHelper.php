@@ -104,33 +104,21 @@ class DbHelper
      */
 
     public function storeEmail($from, $to, $cc, $bcc, $subject, $body, $code, $messageId, $inReplyTo, $references, $rawEmail = '', $mail_attachments=null){
-        // Users are associated with domains, and all emails are associated with domain.
-        // Therefore, we need to find out the related domain for the incoming email.
-        // If domain is not found, then this is outgoing email. set domain id to null.
-        $domainId = false;
-        foreach ($to as $to_single_domain) {
-            $domainId = $this->findDomain($to_single_domain);
-            if($domainId){
-                break;
-            } 
-        }
         
-        $domain = null;
-        if($domainId){
-            $domain = $domainId;
-        }
         try{
 
-            $email_to = [];
-            // Save Out Going Email in Multiple Rows
-            if(is_array($to)){
-                $email_to = $to;
-            }else{
-                $email_to[] = $to;
-            }
-            
-            // Save email to emails table
-            foreach ($email_to as $em_to) {
+            // Users are associated with domains, and all emails are associated with domain.
+            // Therefore, we need to find out the related domain for the incoming email.
+            // If domain is not found, then this is outgoing email. set domain id to null.
+            $domainId = false;
+            foreach ($to as $to_single_domain) {
+                $domainId = $this->findDomain($to_single_domain);
+
+                $domain = null;
+                if($domainId){
+                    $domain = $domainId;
+                }
+
                 $preparedStatement = $this->connection->prepare(
                     sprintf("
                         INSERT INTO %s (
@@ -141,9 +129,10 @@ class DbHelper
                         $this->config['emails_table']
                     )
                 );
+                
                 $preparedStatement->execute([
                     'from' => strtolower($from),
-                    'to' => $em_to,
+                    'to' => $to_single_domain,
                     'cc' => json_encode($cc),
                     'bcc' => json_encode($bcc),
                     'subject' => $subject,
@@ -158,28 +147,30 @@ class DbHelper
                     'updated' => date("Y-m-d H:i:s"),
                     'attachments'=>$mail_attachments
                 ]);
+
+                $emailId = $this->connection->lastInsertId();
+
+                //set the groupId
+                if ($inReplyTo) {
+                    //if inReplyTo exists then set the parent's groupId as a groupId
+                    $groupId  = $this->getParentGroupId($inReplyTo);
+                } else {
+                    //if inReplyTo not exists then set email's Id as a groupId
+                    $groupId = $emailId;
+                }
+                $this->setGroupId($emailId, $groupId);
+
+                // If domain id is found then this is an email that comes to one of our domain.
+                // User may setup webhook and we have to process. Therefore, trigger the webhook.
+                // If domain id is not found this mean this is an outgoing email that goes to unknown domain.
+                // Return true in this case.
+                if($domainId){
+                     $this->_triggerWebhook($emailId);
+                }
             }
 
-            $emailId = $this->connection->lastInsertId();
-
-            //set the groupId
-            if ($inReplyTo) {
-                //if inReplyTo exists then set the parent's groupId as a groupId
-                $groupId  = $this->getParentGroupId($inReplyTo);
-            } else {
-                //if inReplyTo not exists then set email's Id as a groupId
-                $groupId = $emailId;
-            }
-            $this->setGroupId($emailId, $groupId);
-
-            // If domain id is found then this is an email that comes to one of our domain.
-            // User may setup webhook and we have to process. Therefore, trigger the webhook.
-            // If domain id is not found this mean this is an outgoing email that goes to unknown domain.
-            // Return true in this case.
-            if($domainId){
-                return $this->_triggerWebhook($emailId);
-            }
             return true;
+             
         }catch (\Throwable $th){
             return false;
         }
