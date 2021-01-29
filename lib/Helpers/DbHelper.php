@@ -129,7 +129,7 @@ class DbHelper
                         $this->config['emails_table']
                     )
                 );
-                
+                $this->connection->beginTransaction();
                 $preparedStatement->execute([
                     'from' => strtolower($from),
                     'to' => $to_single_domain,
@@ -149,6 +149,7 @@ class DbHelper
                 ]);
 
                 $emailId = $this->connection->lastInsertId();
+                $this->connection->commit();
 
                 //set the groupId
                 if ($inReplyTo) {
