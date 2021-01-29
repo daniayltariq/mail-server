@@ -35,11 +35,17 @@ class MessageProcessingHandler {
         $dbHelper = DbHelper::getInstance();
         $fromDomain = $dbHelper->findDomainShort($from);
 
+        $outgoingEmails = [];
+        $incomingEmails = [];
+
         foreach ($to as $to_single_domain) {
+
             $toDomain = $dbHelper->findDomainShort($to_single_domain);
             if($toDomain){
-                break;
-            } 
+               $incomingEmails[] = $to_single_domain;
+            }else{
+                $outgoingEmails[] = $to_single_domain;
+            }
         }
 
         if($fromDomain){
@@ -47,25 +53,30 @@ class MessageProcessingHandler {
             // First of all check if user has permission to send emails from this domain.
             // Continue only when user has permission.
             if($dbHelper->checkUserPermission($username, $from)){
-                if($toDomain){
+
+                if($incomingEmails){
                     // Email is sent to our domain.
                     // In this case save email directly to db
-                    $this->store($from, $to, $cc, $bcc, $subject, $body,'', $messageId, $inReplyTo, $references, $rawEmail, $mail_attachments);
-                }else{
+                    $this->store($from, $incomingEmails, $cc, $bcc, $subject, $body,'', $messageId, $inReplyTo, $references, $rawEmail, $mail_attachments);
+                }
+                
+                if($outgoingEmails){
+
                     // Email is sent to another domain.
                     // Relay email in this case.
                     // MailHelper:sendMail will return Message-ID, we should save this to emails table.
                     // Message-ID will be used to identify replies to emails we sent.
-                    $sent = MailHelper::sendMail($from, $fromName, $to, $cc, $bcc, $subject, $body, $inReplyTo, $references);
+                    $sent = MailHelper::sendMail($from, $fromName, $outgoingEmails, $cc, $bcc, $subject, $body, $inReplyTo, $references);
                     if(!$sent){
                         echo json_encode('EMAIL IS NOT SENT').PHP_EOL;
                         // An error occurred
                     }else{
                         echo json_encode('EMAIL IS SENT').PHP_EOL;
                         // Mail sent
-                        $this->store($from, $to, $cc, $bcc, $subject, $body, '', $sent, $inReplyTo, $references, $rawEmail, $mail_attachments);
+                        $this->store($from, $incomingEmails, $cc, $bcc, $subject, $body, '', $sent, $inReplyTo, $references, $rawEmail, $mail_attachments);
                         echo json_encode('EMAIL IS SAVED').PHP_EOL;
                     }
+
                 }
             }
         }else{
@@ -73,8 +84,8 @@ class MessageProcessingHandler {
             // This is an incoming email.
             // Check if email comes to one of our domains. If receiver is not one of our domains then dont to anything.
             // If receiver is one of our domains then process the email for possible verification code and then save it.
-            if($toDomain){
-                $code = $this->extractVerificationCode($from, $to, $subject, $body);
+            if($incomingEmails){
+                $code = $this->extractVerificationCode($from, $incomingEmails, $subject, $body);
                 $this->store($from, $to, $cc, $bcc, $subject, $body, $code, $messageId, $inReplyTo, $references, $rawEmail, $mail_attachments);
                 echo json_encode('EMAIL SAVED').PHP_EOL;
             }
