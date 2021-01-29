@@ -73,7 +73,7 @@ class MessageProcessingHandler {
                     }else{
                         echo json_encode('EMAIL IS SENT').PHP_EOL;
                         // Mail sent
-                        $this->store($from, $incomingEmails, $cc, $bcc, $subject, $body, '', $sent, $inReplyTo, $references, $rawEmail, $mail_attachments);
+                        $this->store($from, $outgoingEmails, $cc, $bcc, $subject, $body, '', $sent, $inReplyTo, $references, $rawEmail, $mail_attachments);
                         echo json_encode('EMAIL IS SAVED').PHP_EOL;
                     }
 
