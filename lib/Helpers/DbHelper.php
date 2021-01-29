@@ -164,7 +164,7 @@ class DbHelper
                 // User may setup webhook and we have to process. Therefore, trigger the webhook.
                 // If domain id is not found this mean this is an outgoing email that goes to unknown domain.
                 // Return true in this case.
-                if($domainId){
+                if($emailId && $domainId){
                      $this->_triggerWebhook($emailId);
                 }
             }
